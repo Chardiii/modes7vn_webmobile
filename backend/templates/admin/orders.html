@@ -1,0 +1,127 @@
+{% extends "admin/admin_base.html" %}
+{% set active_page = 'orders' %}
+
+{% block title %}Orders — Mode S7vn Admin{% endblock %}
+{% block page_title %}Manage Orders{% endblock %}
+
+{% block content %}
+
+{# ── Page header #}
+<div class="adm-page-header">
+    <div>
+        <h1 class="adm-page-title">Manage Orders</h1>
+        <p class="adm-page-sub">{{ orders.total }} total orders</p>
+    </div>
+</div>
+
+{# ── Status filter tabs #}
+{% set all_statuses = ['pending','verified','assigned','shipped','delivered','cancelled'] %}
+<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <a href="{{ url_for('admin.manage_orders') }}"
+       style="font-size:.75rem;font-weight:600;padding:.35rem .85rem;border-radius:999px;text-decoration:none;
+              background:{{ '#111827' if not filter_status else '#f3f4f6' }};
+              color:{{ '#fff' if not filter_status else '#6b7280' }};
+              border:1px solid {{ '#111827' if not filter_status else '#e5e7eb' }};">
+        All <span style="opacity:.7;">({{ status_counts.values()|sum }})</span>
+    </a>
+    {% for s in all_statuses %}
+    <a href="{{ url_for('admin.manage_orders', status=s) }}"
+       style="font-size:.75rem;font-weight:600;padding:.35rem .85rem;border-radius:999px;text-decoration:none;
+              background:{{ '#111827' if filter_status == s else '#f3f4f6' }};
+              color:{{ '#fff' if filter_status == s else '#6b7280' }};
+              border:1px solid {{ '#111827' if filter_status == s else '#e5e7eb' }};">
+        {{ s.capitalize() }} <span style="opacity:.7;">({{ status_counts.get(s, 0) }})</span>
+    </a>
+    {% endfor %}
+</div>
+
+{# ── Search bar #}
+<form method="GET" action="{{ url_for('admin.manage_orders') }}" style="margin-bottom:1.25rem;display:flex;gap:.6rem;">
+    {% if filter_status %}<input type="hidden" name="status" value="{{ filter_status }}">{% endif %}
+    <input type="text" name="q" value="{{ search }}" placeholder="Search order # or buyer…"
+           style="flex:1;max-width:320px;padding:.45rem .85rem;border:1px solid #e5e7eb;border-radius:8px;
+                  font-size:.84rem;color:#374151;outline:none;">
+    <button type="submit" class="adm-btn adm-btn-primary">Search</button>
+    {% if search %}<a href="{{ url_for('admin.manage_orders', status=filter_status) }}" class="adm-btn adm-btn-ghost">Clear</a>{% endif %}
+</form>
+
+{# ── Table #}
+<div class="adm-card">
+    <table class="adm-table">
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Buyer</th>
+                <th>Seller</th>
+                <th>Rider</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders.items %}
+            {% set s = order.status %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('orders.order_detail', order_id=order.id) }}"
+                       style="font-weight:700;color:#111827;text-decoration:none;">
+                        {{ order.order_number }}
+                    </a>
+                </td>
+                <td style="font-weight:500;">{{ order.buyer.username }}</td>
+                <td style="color:#6b7280;">{{ order.seller_user.username if order.seller_user else '—' }}</td>
+                <td style="color:#6b7280;">{{ order.rider.username if order.rider else '—' }}</td>
+                <td style="font-weight:700;">₱{{ "%.2f"|format(order.total_amount) }}</td>
+                <td><span class="adm-badge adm-badge-{{ s }}">{{ s.upper() }}</span></td>
+                <td style="color:#9ca3af;font-size:.78rem;white-space:nowrap;">
+                    {{ order.created_at.strftime('%b %d, %Y') }}
+                </td>
+                <td>
+                    <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                        {% if s == 'verified' %}
+                        <span style="font-size:.75rem;color:#059669;font-weight:600;">⏳ Awaiting rider claim</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align:center;color:#9ca3af;padding:3rem;">
+                    No orders found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if orders.pages > 1 %}
+    <div class="adm-pagination">
+        {% for p in orders.iter_pages() %}
+            {% if p %}
+            <a href="{{ url_for('admin.manage_orders', page=p, status=filter_status, q=search) }}"
+               class="adm-page-btn {{ 'active' if p == orders.page }}">{{ p }}</a>
+            {% else %}
+            <span class="adm-page-btn" style="cursor:default;">…</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('assignModal').addEventListener('show.bs.modal', e => {
+    const btn = e.relatedTarget
+    document.getElementById('assignOrderNum').textContent = btn.dataset.orderNum
+    document.getElementById('assignForm').action = `/admin/orders/${btn.dataset.orderId}/assign-rider`
+})
+
+</script>
+{% endblock %}

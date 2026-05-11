@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}About — Mode S7vn{% endblock %}
+
+{% block content %}
+{# Break out of base.html's container by using negative margins #}
+<style>
+    /* Pull content edge-to-edge past the base container */
+    main.container { padding-left: 0 !important; padding-right: 0 !important; max-width: 100% !important; }
+    .about-section { width: 100%; }
+
+    /* Hero */
+    .about-hero {
+        position: relative;
+        min-height: 520px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: url('https://images.unsplash.com/photo-1617137968427-85924c800a22?w=1600&q=80') center/cover no-repeat;
+        padding: 7rem 1.5rem;
+    }
+    .about-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(160deg, rgba(5,6,12,0.82) 0%, rgba(10,12,20,0.72) 100%);
+    }
+    .about-hero-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+    .about-hero h1 {
+        font-family: 'Orbitron', monospace;
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: 1px;
+        line-height: 1.15;
+        margin-bottom: 1.25rem;
+    }
+    .about-hero h1 span {
+        background: linear-gradient(135deg, #FFD966, #FF8C42);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .about-hero p {
+        font-size: 1.05rem;
+        color: #b0bec5;
+        line-height: 1.75;
+        max-width: 580px;
+        margin: 0 auto;
+    }
+
+    /* Philosophy */
+    .about-philosophy {
+        background: #0a0c10;
+        padding: 5rem 1.5rem;
+    }
+    .about-philosophy .inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    @media (max-width: 768px) { .about-philosophy .inner { grid-template-columns: 1fr; gap: 2.5rem; } }
+    .about-philosophy h2 {
+        font-family: 'Orbitron', monospace;
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+        font-weight: 700;
+        color: #eef2ff;
+        margin-bottom: 1.25rem;
+    }
+    .about-philosophy h2 span {
+        background: linear-gradient(135deg, #FFD966, #FF8C42);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .about-philosophy p { color: #8899aa; line-height: 1.8; margin-bottom: 1rem; font-size: 0.97rem; }
+    .about-philosophy .img-wrap {
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid rgba(255,215,0,0.18);
+        box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+        aspect-ratio: 4/3;
+    }
+    .about-philosophy .img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Commitment */
+    .about-commitment {
+        background: #0d0f18;
+        border-top: 1px solid rgba(255,215,0,0.1);
+        border-bottom: 1px solid rgba(255,215,0,0.1);
+        padding: 5rem 1.5rem;
+    }
+    .about-commitment .inner { max-width: 1100px; margin: 0 auto; }
+    .about-commitment .section-label {
+        text-align: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #FFB347;
+        margin-bottom: 0.6rem;
+    }
+    .about-commitment h2 {
+        font-family: 'Orbitron', monospace;
+        font-size: clamp(1.4rem, 3vw, 2rem);
+        font-weight: 700;
+        color: #eef2ff;
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    .commitment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.75rem; }
+    @media (max-width: 768px) { .commitment-grid { grid-template-columns: 1fr; } }
+    .commitment-card {
+        background: rgba(18,22,32,0.7);
+        border: 1px solid rgba(255,215,0,0.15);
+        border-radius: 20px;
+        padding: 2.25rem 1.75rem;
+        text-align: center;
+        transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+    }
+    .commitment-card:hover {
+        transform: translateY(-6px);
+        border-color: rgba(255,200,100,0.45);
+        box-shadow: 0 20px 36px rgba(0,0,0,0.5);
+    }
+    .commitment-card .icon-wrap {
+        width: 52px; height: 52px;
+        margin: 0 auto 1.25rem;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255,215,0,0.08);
+        border-radius: 14px;
+        border: 1px solid rgba(255,215,0,0.2);
+    }
+    .commitment-card .icon-wrap svg { width: 26px; height: 26px; }
+    .commitment-card h3 { font-size: 1rem; font-weight: 700; color: #eef2ff; margin-bottom: 0.65rem; letter-spacing: 0.3px; }
+    .commitment-card p { font-size: 0.875rem; color: #7a8fa6; line-height: 1.75; margin: 0; }
+
+    /* CTA */
+    .about-cta {
+        background: linear-gradient(160deg, #080a12 0%, #0f1220 100%);
+        padding: 6rem 1.5rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .about-cta::before {
+        content: '';
+        position: absolute;
+        top: -80px; left: 50%; transform: translateX(-50%);
+        width: 600px; height: 300px;
+        background: radial-gradient(ellipse, rgba(255,180,60,0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .about-cta .inner { position: relative; z-index: 1; max-width: 620px; margin: 0 auto; }
+    .about-cta h2 {
+        font-family: 'Orbitron', monospace;
+        font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 1rem;
+        line-height: 1.2;
+    }
+    .about-cta p { color: #8899aa; font-size: 0.97rem; line-height: 1.75; margin-bottom: 2rem; }
+    .about-cta .cta-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #FFD966, #FF8C42);
+        color: #0a0c10;
+        font-weight: 700;
+        font-size: 0.82rem;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 0.85rem 2.25rem;
+        border-radius: 999px;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 6px 20px rgba(255,140,66,0.35);
+    }
+    .about-cta .cta-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(255,140,66,0.55);
+        color: #0a0c10;
+    }
+
+    /* Decorative gold line (reuse from base) */
+    .gold-divider { height: 1px; background: linear-gradient(90deg, transparent, #FFD966, #FF8C42, transparent); width: 100%; }
+</style>
+
+<div class="about-section">
+
+    {# ── Hero ── #}
+    <section class="about-hero">
+        <div class="about-hero-content">
+            <h1>Elevating the <span>Modern Standard.</span></h1>
+            <p>Mode S7vn is a curated destination for contemporary men's apparel. We believe style should be effortless, functional, and undeniably yours.</p>
+        </div>
+    </section>
+
+    <div class="gold-divider"></div>
+
+    {# ── Philosophy ── #}
+    <section class="about-philosophy">
+        <div class="inner">
+            <div>
+                <h2>Effortless Style, <span>Defined.</span></h2>
+                <p>
+                    The modern man doesn't chase trends — he sets them. Mode S7vn was built for the individual who understands that what you wear is a direct extension of who you are. Every piece in our catalog is hand-selected to meet a single standard: does it elevate?
+                </p>
+                <p>
+                    We reject the noise of fast fashion and the compromise of quantity over quality. Our philosophy is simple — fewer pieces, better choices. A wardrobe that works harder so you don't have to think twice when you get dressed.
+                </p>
+            </div>
+            <div class="img-wrap">
+                <img src="https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?w=900&q=80" alt="Minimalist menswear aesthetic">
+            </div>
+        </div>
+    </section>
+
+    <div class="gold-divider"></div>
+
+    {# ── Commitment ── #}
+    <section class="about-commitment">
+        <div class="inner">
+            <p class="section-label">Our Values</p>
+            <h2>The S7VN Commitment</h2>
+            <div class="commitment-grid">
+
+                {# Card 1 #}
+                <div class="commitment-card">
+                    <div class="icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#FFD966" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Curated Quality</h3>
+                    <p>Every item earns its place. We source and vet each piece against a strict standard of material, construction, and aesthetic — so you never have to second-guess your cart.</p>
+                </div>
+
+                {# Card 2 #}
+                <div class="commitment-card">
+                    <div class="icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#FFD966" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3>Seamless Experience</h3>
+                    <p>From browse to doorstep, every touchpoint is designed to be frictionless. Browse, order, and pay on delivery — no cards, no complexity, no compromise.</p>
+                </div>
+
+                {# Card 3 #}
+                <div class="commitment-card">
+                    <div class="icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#FFD966" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <h3>Community First</h3>
+                    <p>Mode S7vn is more than a store — it's a network of buyers, sellers, and riders building something local and real. We grow when our community grows.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <div class="gold-divider"></div>
+
+    {# ── CTA ── #}
+    <section class="about-cta">
+        <div class="inner">
+            <h2>Ready to upgrade your rotation?</h2>
+            <p>Explore our newest arrivals and discover the pieces that will define your look this season.</p>
+            <a href="{{ url_for('products.list_products') }}" class="cta-btn">Shop New Arrivals</a>
+        </div>
+    </section>
+
+</div>
+{% endblock %}

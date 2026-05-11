@@ -1,0 +1,364 @@
+{% extends "rider_base.html" if current_user.is_rider() else "base.html" %}
+{% set active_page = 'profile' %}
+
+{% block title %}My Profile - Mode S7vn{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="prof-wrap">
+
+    {# ── Left: avatar + quick nav ── #}
+    <div class="prof-sidebar">
+        <div class="prof-avatar-card">
+            <div class="prof-avatar">
+                {{ (current_user.first_name or current_user.username)[0].upper() }}
+            </div>
+            <div class="prof-avatar-name">
+                {{ current_user.first_name or '' }} {{ current_user.last_name or '' }}
+                {% if not current_user.first_name and not current_user.last_name %}
+                {{ current_user.username }}
+                {% endif %}
+            </div>
+            <div class="prof-avatar-role">
+                <span class="prof-role-badge prof-role-{{ current_user.role }}">
+                    {% if current_user.role == 'buyer' %}🛍️
+                    {% elif current_user.role == 'seller' %}🏪
+                    {% elif current_user.role == 'rider' %}🏍️
+                    {% else %}🔧{% endif %}
+                    {{ current_user.role.upper() }}
+                </span>
+            </div>
+            <div class="prof-status-row">
+                {% if current_user.is_active %}
+                <span class="prof-status-dot prof-status-active"></span>
+                <span class="prof-status-text">Active</span>
+                {% else %}
+                <span class="prof-status-dot prof-status-pending"></span>
+                <span class="prof-status-text">Pending Approval</span>
+                {% endif %}
+                {% if current_user.email_verified %}
+                <span class="prof-verified-badge">✓ Verified</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="prof-nav-card">
+            {% if current_user.is_buyer() %}
+            <a href="{{ url_for('orders.my_orders') }}" class="prof-nav-item">
+                <span>📋</span> My Orders
+            </a>
+            <a href="{{ url_for('wishlist.view') }}" class="prof-nav-item">
+                <span>♡</span> Wishlist
+            </a>
+            <a href="{{ url_for('orders.cart') }}" class="prof-nav-item">
+                <span>🛒</span> Cart
+            </a>
+            {% endif %}
+            {% if current_user.is_seller() %}
+            <a href="{{ url_for('products.seller_dashboard') }}" class="prof-nav-item">
+                <span>🏪</span> My Products
+            </a>
+            <a href="{{ url_for('orders.seller_received_orders') }}" class="prof-nav-item">
+                <span>📦</span> Orders
+            </a>
+            {% endif %}
+            {% if current_user.is_rider() %}
+            <a href="{{ url_for('main.dashboard') }}" class="prof-nav-item">
+                <span>🏍️</span> Deliveries
+            </a>
+            {% endif %}
+            {% if current_user.is_admin() %}
+            <a href="{{ url_for('admin.dashboard') }}" class="prof-nav-item">
+                <span>🔧</span> Admin Panel
+            </a>
+            {% endif %}
+            <div class="prof-nav-divider"></div>
+            <a href="{{ url_for('auth.edit_profile') }}" class="prof-nav-item">
+                <span>✏️</span> Edit Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="prof-nav-item prof-nav-logout">
+                <span>🚪</span> Logout
+            </a>
+        </div>
+    </div>
+
+    {# ── Right: info cards ── #}
+    <div class="prof-main">
+
+        {# Account info #}
+        <div class="prof-card mb-4">
+            <div class="prof-card-header">
+                <h5 class="prof-card-title">Account Information</h5>
+                <a href="{{ url_for('auth.edit_profile') }}" class="prof-edit-link">Edit →</a>
+            </div>
+            <div class="prof-card-body">
+                <div class="prof-grid">
+
+                    <div class="prof-field">
+                        <label class="prof-field-label">Username</label>
+                        <p class="prof-field-value">{{ current_user.username }}</p>
+                    </div>
+
+                    <div class="prof-field">
+                        <label class="prof-field-label">Full Name</label>
+                        <p class="prof-field-value">
+                            {% if current_user.first_name or current_user.last_name %}
+                            {{ current_user.first_name or '' }} {{ current_user.last_name or '' }}
+                            {% else %}<span class="prof-empty">Not set</span>{% endif %}
+                        </p>
+                    </div>
+
+                    <div class="prof-field">
+                        <label class="prof-field-label">Email</label>
+                        <p class="prof-field-value prof-sensitive">
+                            {% set parts = current_user.email.split('@') %}
+                            {% set local = parts[0] %}
+                            <span class="prof-masked" id="email-m">
+                                {{ local[:2] }}{{ '•' * [local|length - 2, 0]|max }}@{{ parts[1] }}
+                            </span>
+                            <span class="prof-revealed" id="email-r" style="display:none;">
+                                {{ current_user.email }}
+                            </span>
+                            <button type="button" class="prof-reveal-btn" data-m="email-m" data-r="email-r">Show</button>
+                        </p>
+                    </div>
+
+                    <div class="prof-field">
+                        <label class="prof-field-label">Phone</label>
+                        <p class="prof-field-value prof-sensitive">
+                            {% if current_user.phone %}
+                            <span class="prof-masked" id="phone-m">
+                                {{ current_user.phone[:3] }}{{ '•' * [current_user.phone|length - 5, 0]|max }}{{ current_user.phone[-2:] if current_user.phone|length > 4 else '' }}
+                            </span>
+                            <span class="prof-revealed" id="phone-r" style="display:none;">{{ current_user.phone }}</span>
+                            <button type="button" class="prof-reveal-btn" data-m="phone-m" data-r="phone-r">Show</button>
+                            {% else %}<span class="prof-empty">Not set</span>{% endif %}
+                        </p>
+                    </div>
+
+                    <div class="prof-field prof-field-full">
+                        <label class="prof-field-label">Delivery Address</label>
+                        <p class="prof-field-value prof-sensitive">
+                            {% set addr = current_user.full_address %}
+                            {% if addr %}
+                            <span class="prof-masked" id="addr-m">•••••••••••••••••••</span>
+                            <span class="prof-revealed" id="addr-r" style="display:none;">{{ addr }}</span>
+                            <button type="button" class="prof-reveal-btn" data-m="addr-m" data-r="addr-r">Show</button>
+                            {% else %}
+                            <span class="prof-empty">Not set — <a href="{{ url_for('auth.edit_profile') }}">add your address</a></span>
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="prof-field">
+                        <label class="prof-field-label">Member Since</label>
+                        <p class="prof-field-value">{{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        {# Seller info #}
+        {% if current_user.is_seller() %}
+        <div class="prof-card mb-4">
+            <div class="prof-card-header">
+                <h5 class="prof-card-title">🏪 Shop Information</h5>
+                <a href="{{ url_for('auth.edit_profile') }}" class="prof-edit-link">Edit →</a>
+            </div>
+            <div class="prof-card-body">
+                <div class="prof-grid">
+                    <div class="prof-field">
+                        <label class="prof-field-label">Store Name</label>
+                        <p class="prof-field-value fw-bold">{{ current_user.shop_name or '—' }}</p>
+                    </div>
+                    <div class="prof-field">
+                        <label class="prof-field-label">Shop Rating</label>
+                        <p class="prof-field-value">
+                            <span style="color:#f59e0b;">
+                                {% for i in range(1,6) %}{% if i <= current_user.shop_rating|int %}★{% else %}☆{% endif %}{% endfor %}
+                            </span>
+                            <span class="text-muted ms-1">{{ current_user.shop_rating }}/5.0</span>
+                        </p>
+                    </div>
+                    {% if current_user.shop_description %}
+                    <div class="prof-field prof-field-full">
+                        <label class="prof-field-label">Description</label>
+                        <p class="prof-field-value">{{ current_user.shop_description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Rider info #}
+        {% if current_user.is_rider() %}
+        <div class="prof-card mb-4">
+            <div class="prof-card-header">
+                <h5 class="prof-card-title">🏍️ Rider Information</h5>
+                <a href="{{ url_for('auth.edit_profile') }}" class="prof-edit-link">Edit →</a>
+            </div>
+            <div class="prof-card-body">
+                <div class="prof-grid">
+                    <div class="prof-field">
+                        <label class="prof-field-label">Vehicle Type</label>
+                        <p class="prof-field-value">{{ current_user.vehicle_type or '—' }}</p>
+                    </div>
+                    <div class="prof-field">
+                        <label class="prof-field-label">Plate Number</label>
+                        <p class="prof-field-value prof-sensitive">
+                            {% if current_user.plate_number %}
+                            <span class="prof-masked" id="plate-m">{{ current_user.plate_number[:3] }}•••</span>
+                            <span class="prof-revealed" id="plate-r" style="display:none;">{{ current_user.plate_number }}</span>
+                            <button type="button" class="prof-reveal-btn" data-m="plate-m" data-r="plate-r">Show</button>
+                            {% else %}—{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<style>
+.prof-wrap {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 1.75rem;
+    align-items: start;
+}
+@media (max-width: 860px) { .prof-wrap { grid-template-columns: 1fr; } }
+
+/* Avatar card */
+.prof-avatar-card {
+    background: #111827;
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(200,169,110,.15);
+}
+.prof-avatar {
+    width: 72px; height: 72px;
+    background: var(--brand-accent);
+    color: var(--brand-dark);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; font-weight: 800;
+    margin: 0 auto 1rem;
+}
+.prof-avatar-name { color: #fff; font-weight: 700; font-size: 1rem; margin-bottom: .5rem; }
+.prof-avatar-role { margin-bottom: .75rem; }
+.prof-role-badge {
+    font-size: .72rem; font-weight: 700;
+    padding: .3rem .85rem; border-radius: 999px;
+    letter-spacing: .5px;
+}
+.prof-role-buyer  { background: rgba(59,130,246,.2);  color: #93c5fd; }
+.prof-role-seller { background: rgba(34,197,94,.2);   color: #86efac; }
+.prof-role-rider  { background: rgba(234,179,8,.2);   color: #fde047; }
+.prof-role-admin  { background: rgba(239,68,68,.2);   color: #fca5a5; }
+
+.prof-status-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: .4rem; flex-wrap: wrap;
+}
+.prof-status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.prof-status-active  { background: #22c55e; }
+.prof-status-pending { background: #f59e0b; }
+.prof-status-text { color: #aaa; font-size: .75rem; }
+.prof-verified-badge {
+    background: rgba(34,197,94,.15); color: #86efac;
+    font-size: .68rem; font-weight: 700;
+    padding: .2rem .55rem; border-radius: 999px;
+}
+
+/* Nav card */
+.prof-nav-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #ece9e1;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+.prof-nav-item {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .75rem 1.1rem;
+    font-size: .85rem; font-weight: 500;
+    color: #555; text-decoration: none;
+    border-bottom: 1px solid #f8f6f2;
+    transition: background .15s, color .15s;
+}
+.prof-nav-item:last-child { border-bottom: none; }
+.prof-nav-item:hover { background: #faf9f6; color: var(--brand-dark); }
+.prof-nav-logout { color: #dc2626; }
+.prof-nav-logout:hover { background: #fff1f2; color: #dc2626; }
+.prof-nav-divider { height: 1px; background: #f0ede6; }
+
+/* Info cards */
+.prof-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #ece9e1;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+.prof-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f0ede6;
+    background: #faf9f6;
+}
+.prof-card-title { font-size: .95rem; font-weight: 700; color: var(--brand-dark); margin: 0; }
+.prof-edit-link  { font-size: .8rem; color: var(--brand-accent); text-decoration: none; font-weight: 600; }
+.prof-edit-link:hover { color: #a8893e; }
+.prof-card-body  { padding: 1.5rem; }
+
+.prof-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+@media (max-width: 600px) { .prof-grid { grid-template-columns: 1fr; } }
+
+.prof-field-full { grid-column: 1 / -1; }
+.prof-field-label {
+    font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: #aaa; display: block; margin-bottom: .3rem;
+}
+.prof-field-value { font-size: .9rem; color: var(--brand-dark); margin: 0; }
+.prof-empty { color: #bbb; font-style: italic; }
+
+/* Sensitive reveal */
+.prof-sensitive { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.prof-masked  { color: #aaa; letter-spacing: 1px; }
+.prof-revealed { color: var(--brand-dark); }
+.prof-reveal-btn {
+    background: none; border: 1px solid #e0ddd5;
+    border-radius: 4px; padding: .15rem .5rem;
+    font-size: .72rem; color: #888; cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.prof-reveal-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
+</style>
+
+<script>
+document.querySelectorAll('.prof-reveal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const masked   = document.getElementById(btn.dataset.m)
+        const revealed = document.getElementById(btn.dataset.r)
+        const showing  = revealed.style.display !== 'none'
+        masked.style.display   = showing ? 'inline' : 'none'
+        revealed.style.display = showing ? 'none'   : 'inline'
+        btn.textContent        = showing ? 'Show'   : 'Hide'
+    })
+})
+</script>
+
+{% endblock %}

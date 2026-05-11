@@ -1,0 +1,319 @@
+{% extends "rider_base.html" %}
+{% set active_page = 'dashboard' %}
+
+{% block title %}Rider Dashboard — Mode S7vn{% endblock %}
+{% block page_title %}My Deliveries{% endblock %}
+
+{% block content %}
+
+{# ── Page header ── #}
+<div class="rdr-page-header">
+    <div>
+        <h1 class="rdr-page-title">Rider Dashboard</h1>
+        <p class="rdr-page-sub">
+            {{ current_user.username }}
+            {% if current_user.vehicle_type %} · {{ current_user.vehicle_type }}{% endif %}
+            {% if current_user.plate_number %} · {{ current_user.plate_number }}{% endif %}
+        </p>
+    </div>
+    <span class="rdr-badge {{ 'rdr-badge-active' if current_user.is_active else 'rdr-badge-inactive' }}">
+        {{ 'ACTIVE' if current_user.is_active else 'INACTIVE' }}
+    </span>
+</div>
+
+{# ── KPI Cards ── #}
+<div class="rdr-kpi-grid">
+
+    <div class="rdr-kpi">
+        <div class="rdr-kpi-header">
+            <span class="rdr-kpi-label">Active Deliveries</span>
+            <div class="rdr-kpi-icon kpi-amber">🏍️</div>
+        </div>
+        <div class="rdr-kpi-value">{{ active_orders|length }}</div>
+        <div class="rdr-kpi-sub">Currently in transit</div>
+    </div>
+
+    <div class="rdr-kpi">
+        <div class="rdr-kpi-header">
+            <span class="rdr-kpi-label">Total Delivered</span>
+            <div class="rdr-kpi-icon kpi-blue">✅</div>
+        </div>
+        <div class="rdr-kpi-value">{{ completed }}</div>
+        <div class="rdr-kpi-sub">All time</div>
+    </div>
+
+    <div class="rdr-kpi">
+        <div class="rdr-kpi-header">
+            <span class="rdr-kpi-label">COD This Week</span>
+            <div class="rdr-kpi-icon kpi-green">₱</div>
+        </div>
+        <div class="rdr-kpi-value green">₱{{ "%.2f"|format(this_week) }}</div>
+        <div class="rdr-kpi-sub">₱{{ "%.2f"|format(earnings) }} all time</div>
+    </div>
+
+</div>
+
+{# ── Available Orders to Claim ── #}
+<div class="rdr-card">
+    <div class="rdr-card-header">
+        <span class="rdr-card-title">Available Orders</span>
+        {% if available_orders %}
+        <span class="rdr-badge rdr-badge-pending">{{ available_orders|length }} available</span>
+        {% endif %}
+    </div>
+
+    {% if available_orders %}
+    <div>
+        {% for order in available_orders %}
+        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #f9fafb;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;">
+                        <span style="font-weight:700;color:#111827;font-size:.9rem;">{{ order.order_number }}</span>
+                        <span class="rdr-badge rdr-badge-assigned">VERIFIED</span>
+                    </div>
+                    <div style="font-size:.83rem;color:#374151;margin-bottom:.25rem;">
+                        <strong>Deliver to:</strong> {{ order.delivery_address }}, {{ order.delivery_city }}
+                    </div>
+                    <div style="font-size:.82rem;font-weight:700;color:#059669;">
+                        ₱{{ "%.2f"|format(order.total_amount) }} COD
+                    </div>
+                </div>
+                <form method="POST" action="{{ url_for('orders.claim_order', order_id=order.id) }}">
+                    <button type="submit" class="rdr-btn rdr-btn-blue"
+                            onclick="return confirm('Claim order {{ order.order_number }}?')"
+                            style="white-space:nowrap;">
+                        🚴 Claim Order
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:2rem;color:#9ca3af;">
+        <p style="margin:0;font-size:.9rem;">No orders available to claim right now.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Active Deliveries ── #}
+<div class="rdr-card">
+    <div class="rdr-card-header">
+        <span class="rdr-card-title">Active Deliveries</span>
+        {% if active_orders %}
+        <span class="rdr-badge rdr-badge-pending">{{ active_orders|length }} pending</span>
+        {% endif %}
+    </div>
+
+    {% if active_orders %}
+    <div>
+        {% for order in active_orders %}
+        {% set maps_query = (order.delivery_address ~ ', ' ~ order.delivery_city)|urlencode %}
+        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #f9fafb;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap;">
+                        <a href="{{ url_for('orders.order_detail', order_id=order.id) }}"
+                           style="font-weight:700;color:#111827;text-decoration:none;font-size:.9rem;">
+                            {{ order.order_number }}
+                        </a>
+                        <span class="rdr-badge {{ 'rdr-badge-assigned' if order.status == 'assigned' else 'rdr-badge-shipped' }}">
+                            {{ order.status.upper() }}
+                        </span>
+                    </div>
+
+                    <div style="font-size:.83rem;color:#374151;margin-bottom:.25rem;">
+                        <strong>Buyer:</strong> {{ order.buyer.username }}
+                        {% if order.buyer.phone %}
+                        · <a href="tel:{{ order.buyer.phone }}" style="color:#059669;text-decoration:none;">
+                            {{ order.buyer.phone }}
+                          </a>
+                        {% endif %}
+                    </div>
+
+                    <div style="font-size:.83rem;color:#374151;margin-bottom:.6rem;">
+                        <strong>Deliver to:</strong>
+                        {{ order.delivery_address }}, {{ order.delivery_city }}
+                        {% if order.delivery_zip %}, {{ order.delivery_zip }}{% endif %}
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ maps_query }}"
+                           target="_blank" rel="noopener"
+                           style="display:inline-flex;align-items:center;gap:.35rem;
+                                  font-size:.75rem;font-weight:600;color:#1d4ed8;
+                                  background:#eff6ff;border:1px solid #bfdbfe;
+                                  padding:.3rem .75rem;border-radius:6px;text-decoration:none;">
+                            🗺️ Open in Maps
+                        </a>
+                        <span style="font-size:.82rem;font-weight:700;color:#059669;">
+                            ₱{{ "%.2f"|format(order.total_amount) }} COD
+                        </span>
+                    </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:.5rem;flex-shrink:0;">
+                    {% if order.status == 'assigned' %}
+                    <form method="POST" action="{{ url_for('orders.pickup_order', order_id=order.id) }}">
+                        <button type="submit" class="rdr-btn rdr-btn-blue"
+                                onclick="return confirm('Confirm pickup of {{ order.order_number }}?')"
+                                style="width:100%;white-space:nowrap;">
+                            🏍️ Mark Picked Up
+                        </button>
+                    </form>
+                    {% elif order.status == 'shipped' %}
+                    <button type="button" class="rdr-btn rdr-btn-green"
+                            onclick="openProofModal({{ order.id }}, '{{ order.order_number }}')"
+                            style="width:100%;white-space:nowrap;">
+                        ✅ Mark Delivered
+                    </button>
+                    {% endif %}
+                    <a href="{{ url_for('orders.order_detail', order_id=order.id) }}"
+                       class="rdr-btn rdr-btn-ghost" style="justify-content:center;">
+                        View Details
+                    </a>
+                </div>
+
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:3rem;color:#9ca3af;">
+        <div style="font-size:2rem;margin-bottom:.75rem;">🏍️</div>
+        <p style="margin:0;font-size:.9rem;">No active deliveries assigned to you.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Delivery History ── #}
+<div class="rdr-card">
+    <div class="rdr-card-header">
+        <span class="rdr-card-title">Delivery History</span>
+        <span style="font-size:.75rem;color:#9ca3af;">Last 20</span>
+    </div>
+
+    {% if delivered_orders %}
+    <table class="rdr-table">
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Buyer</th>
+                <th>Delivered</th>
+                <th style="text-align:right;">COD Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in delivered_orders %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('orders.order_detail', order_id=order.id) }}"
+                       style="font-weight:600;color:#111827;text-decoration:none;">
+                        {{ order.order_number }}
+                    </a>
+                </td>
+                <td>{{ order.buyer.username }}</td>
+                <td style="color:#9ca3af;font-size:.78rem;">
+                    {{ order.delivered_at.strftime('%b %d, %Y %H:%M') if order.delivered_at else '—' }}
+                </td>
+                <td style="font-weight:700;color:#059669;text-align:right;">
+                    ₱{{ "%.2f"|format(order.total_amount) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:3rem;color:#9ca3af;">
+        <p style="margin:0;font-size:.9rem;">No completed deliveries yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Proof of Delivery Modal ── #}
+<div id="proofModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+     z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:2rem;width:100%;max-width:480px;
+              margin:1rem;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <h5 style="font-weight:800;margin:0 0 .25rem;">📸 Proof of Delivery</h5>
+    <p style="font-size:.83rem;color:#6b7280;margin:0 0 1.25rem;">
+      Upload or take a photo as proof before marking the order as delivered.
+    </p>
+    <form id="proofForm" method="POST" enctype="multipart/form-data">
+      <div id="previewWrap" style="display:none;margin-bottom:1rem;">
+        <img id="previewImg" src="" alt="Preview"
+             style="width:100%;max-height:260px;object-fit:cover;
+                    border-radius:10px;border:1px solid #e5e7eb;">
+      </div>
+      <div style="display:flex;gap:.75rem;margin-bottom:1.25rem;">
+        <label style="flex:1;cursor:pointer;">
+          <input type="file" name="proof_of_delivery" id="proofInput"
+                 accept="image/*" style="display:none;" onchange="previewProof(this)" required>
+          <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;
+                      border:2px dashed #d1d5db;border-radius:10px;padding:.85rem;
+                      font-size:.85rem;font-weight:600;color:#374151;cursor:pointer;">
+            📁 Choose Photo
+          </div>
+        </label>
+        <label style="flex:1;cursor:pointer;">
+          <input type="file" id="cameraInput" accept="image/*" capture="environment"
+                 style="display:none;" onchange="previewProof(this)">
+          <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;
+                      border:2px dashed #d1d5db;border-radius:10px;padding:.85rem;
+                      font-size:.85rem;font-weight:600;color:#374151;cursor:pointer;">
+            📷 Use Camera
+          </div>
+        </label>
+      </div>
+      <div style="display:flex;gap:.75rem;">
+        <button type="button" onclick="closeProofModal()"
+                style="flex:1;padding:.75rem;border:1.5px solid #e5e7eb;border-radius:8px;
+                       background:#fff;font-weight:600;cursor:pointer;font-size:.88rem;">Cancel</button>
+        <button type="submit" id="proofSubmitBtn" disabled
+                style="flex:2;padding:.75rem;border:none;border-radius:8px;
+                       background:#059669;color:#fff;font-weight:700;cursor:pointer;
+                       font-size:.88rem;opacity:.5;">✅ Confirm Delivery</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openProofModal(orderId) {
+    document.getElementById('proofForm').action = '/orders/' + orderId + '/deliver';
+    document.getElementById('proofInput').value = '';
+    document.getElementById('cameraInput').value = '';
+    document.getElementById('previewWrap').style.display = 'none';
+    const btn = document.getElementById('proofSubmitBtn');
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+    document.getElementById('proofModal').style.display = 'flex';
+}
+function closeProofModal() {
+    document.getElementById('proofModal').style.display = 'none';
+}
+function previewProof(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    // Copy file to the named input so the form submits it
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('proofInput').files = dt.files;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('previewWrap').style.display = 'block';
+        const btn = document.getElementById('proofSubmitBtn');
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    };
+    reader.readAsDataURL(file);
+}
+document.getElementById('proofModal').addEventListener('click', function(e) {
+    if (e.target === this) closeProofModal();
+});
+</script>
+
+{% endblock %}

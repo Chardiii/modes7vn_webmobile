@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% from "macros/psgc_address.html" import psgc_address %}
+
+{% block title %}Register — Mode S7vn{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Break out of base container ── */
+    main.container { padding-left: 0 !important; padding-right: 0 !important; max-width: 100% !important; }
+
+    .reg-wrap {
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 2.5rem 1rem 4rem;
+    }
+
+    .reg-box {
+        width: 100%;
+        max-width: 680px;
+    }
+
+    /* ── Header ── */
+    .reg-header { text-align: center; margin-bottom: 2rem; }
+    .reg-header-logo {
+        font-family: 'Orbitron', monospace;
+        font-size: 1.5rem; font-weight: 800;
+        background: linear-gradient(135deg, #FFD966, #FF8C42);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        letter-spacing: 2px; margin-bottom: .4rem;
+    }
+    .reg-header h1 {
+        font-size: 1.6rem; font-weight: 800; color: #141313; margin-bottom: .35rem;
+    }
+    .reg-header p { font-size: .88rem; color: #6b7280; }
+
+    /* ── Card ── */
+    .reg-card {
+        background: rgba(18,22,32,.9);
+        border: 1px solid rgba(255,215,0,.13);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+    .reg-card-body { padding: 2rem; }
+
+    /* ── Section divider ── */
+    .reg-section {
+        font-size: .68rem; font-weight: 700;
+        letter-spacing: 2px; text-transform: uppercase;
+        color: #FFB347;
+        display: flex; align-items: center; gap: .75rem;
+        margin: 1.75rem 0 1.1rem;
+    }
+    .reg-section::after {
+        content: ''; flex: 1; height: 1px;
+        background: rgba(255,215,0,.12);
+    }
+
+    /* ── Role selector ── */
+    .reg-roles { display: grid; grid-template-columns: repeat(3,1fr); gap: .75rem; margin-bottom: .5rem; }
+    .reg-role-input { display: none; }
+    .reg-role-label {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: .4rem; padding: 1rem .5rem;
+        background: rgba(255,255,255,.03);
+        border: 1.5px solid rgba(255,255,255,.08);
+        border-radius: 12px; cursor: pointer;
+        transition: border-color .2s, background .2s;
+        font-size: .8rem; font-weight: 600; color: #9ca3af;
+    }
+    .reg-role-label .role-icon { font-size: 1.6rem; }
+    .reg-role-input:checked + .reg-role-label {
+        border-color: #FFB347;
+        background: rgba(255,179,71,.08);
+        color: #FFD966;
+    }
+    .reg-role-label:hover { border-color: rgba(255,179,71,.4); color: #d1d5db; }
+
+    /* ── Form fields ── */
+    .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+    .reg-grid-full { grid-column: 1 / -1; }
+    @media (max-width: 560px) { .reg-grid { grid-template-columns: 1fr; } }
+
+    .reg-field { display: flex; flex-direction: column; gap: .35rem; }
+    .reg-label {
+        font-size: .7rem; font-weight: 700;
+        letter-spacing: .8px; text-transform: uppercase; color: #6b7280;
+    }
+    .reg-label .req { color: #f87171; margin-left: .2rem; }
+
+    .reg-input, .reg-select, .reg-textarea {
+        width: 100%;
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 10px;
+        padding: .65rem 1rem;
+        font-size: .88rem; color: #eef2ff;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .reg-input::placeholder, .reg-textarea::placeholder { color: #374151; }
+    .reg-input:focus, .reg-select:focus, .reg-textarea:focus {
+        border-color: rgba(255,200,100,.5);
+        box-shadow: 0 0 0 3px rgba(255,180,60,.07);
+    }
+    .reg-select { appearance: none; cursor: pointer; }
+    .reg-select option { background: #111827; color: #eef2ff; }
+    .reg-select:disabled { opacity: .45; cursor: not-allowed; }
+    .reg-textarea { resize: vertical; min-height: 80px; }
+
+    /* Input with eye toggle */
+    .reg-input-wrap { position: relative; }
+    .reg-input-wrap .reg-input { padding-right: 2.8rem; }
+    .reg-eye {
+        position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer;
+        color: #4b5563; font-size: .9rem; padding: 0;
+        transition: color .15s;
+    }
+    .reg-eye:hover { color: #FFB347; }
+
+    /* File input */
+    .reg-file {
+        width: 100%;
+        background: rgba(255,255,255,.03);
+        border: 1.5px dashed rgba(255,215,0,.2);
+        border-radius: 10px;
+        padding: .65rem 1rem;
+        font-size: .85rem; color: #6b7280;
+        cursor: pointer; outline: none;
+        transition: border-color .2s;
+    }
+    .reg-file:hover { border-color: rgba(255,200,100,.4); }
+    .reg-file::file-selector-button {
+        background: rgba(255,215,0,.1); border: 1px solid rgba(255,215,0,.2);
+        border-radius: 6px; color: #FFB347;
+        font-size: .75rem; font-weight: 700;
+        padding: .25rem .65rem; margin-right: .75rem; cursor: pointer;
+    }
+    .reg-hint { font-size: .72rem; color: #4b5563; margin-top: .2rem; }
+
+    /* Password strength */
+    .reg-pw-bar-wrap {
+        height: 4px; background: rgba(255,255,255,.06);
+        border-radius: 999px; margin-top: .5rem; overflow: hidden;
+    }
+    .reg-pw-bar { height: 100%; width: 0%; border-radius: 999px; transition: width .3s, background .3s; }
+    .reg-pw-reqs {
+        background: rgba(255,255,255,.03);
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 10px; padding: .75rem 1rem;
+        margin-top: .6rem;
+    }
+    .reg-pw-reqs-title { font-size: .7rem; font-weight: 700; color: #6b7280; margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .5px; }
+    .reg-req { font-size: .75rem; color: #4b5563; display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; transition: color .2s; }
+    .reg-req.met { color: #6ee7b7; }
+    .reg-req::before { content: '○'; font-size: .6rem; }
+    .reg-req.met::before { content: '●'; }
+
+    /* Role-specific sections */
+    .reg-role-section { display: none; }
+    .reg-role-section.visible { display: block; }
+
+    /* Info note */
+    .reg-note {
+        background: rgba(59,130,246,.07);
+        border: 1px solid rgba(59,130,246,.2);
+        border-radius: 10px; padding: .85rem 1rem;
+        font-size: .8rem; color: #93c5fd; line-height: 1.6;
+        margin-top: 1.5rem;
+    }
+
+    /* Submit */
+    .reg-submit {
+        width: 100%; margin-top: 1.25rem;
+        padding: .95rem;
+        background: linear-gradient(95deg, #FFB347, #FF8C42);
+        border: none; border-radius: 12px;
+        font-family: 'Orbitron', monospace;
+        font-size: .8rem; font-weight: 800;
+        letter-spacing: 1.5px; text-transform: uppercase;
+        color: #0a0c10; cursor: pointer;
+        transition: transform .2s, box-shadow .2s;
+        box-shadow: 0 4px 18px rgba(255,140,66,.3);
+    }
+    .reg-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(255,140,66,.5); }
+
+    /* Footer */
+    .reg-footer {
+        text-align: center; padding: 1.25rem;
+        border-top: 1px solid rgba(255,255,255,.05);
+        font-size: .84rem; color: #6b7280;
+    }
+    .reg-footer a { color: #FFB347; text-decoration: none; font-weight: 600; }
+    .reg-footer a:hover { color: #FFD966; }
+
+    /* Override Bootstrap form-select/form-control inside PSGC macro */
+    #psgc-region, #psgc-province, #psgc-municipality, #psgc-barangay,
+    input[name="street"], input[name="zip_code"] {
+        background: rgba(255,255,255,.04) !important;
+        border: 1px solid rgba(255,255,255,.1) !important;
+        border-radius: 10px !important;
+        color: #eef2ff !important;
+        font-size: .88rem !important;
+        padding: .65rem 1rem !important;
+        outline: none !important;
+    }
+    #psgc-region:focus, #psgc-province:focus, #psgc-municipality:focus,
+    #psgc-barangay:focus, input[name="street"]:focus, input[name="zip_code"]:focus {
+        border-color: rgba(255,200,100,.5) !important;
+        box-shadow: 0 0 0 3px rgba(255,180,60,.07) !important;
+    }
+    #psgc-region option, #psgc-province option,
+    #psgc-municipality option, #psgc-barangay option { background: #111827; }
+    .form-label.small, .form-label.fw-bold, label.form-label {
+        font-size: .7rem !important; font-weight: 700 !important;
+        letter-spacing: .8px; text-transform: uppercase; color: #6b7280 !important;
+    }
+</style>
+
+<div class="reg-wrap">
+    <div class="reg-box">
+
+        <div class="reg-header">
+            <div class="reg-header-logo">MODE S7VN</div>
+            <h1>Create Your Account</h1>
+            <p>Join the community — buyers, sellers, and riders welcome.</p>
+        </div>
+
+        <div class="reg-card">
+            <div class="reg-card-body">
+                <form method="POST" action="{{ url_for('auth.register') }}"
+                      enctype="multipart/form-data" id="reg-form">
+
+                    {# ── Role ── #}
+                    <div class="reg-section">Register as</div>
+                    <div class="reg-roles">
+                        <div>
+                            <input type="radio" class="reg-role-input" name="role"
+                                   id="role_buyer" value="buyer" checked>
+                            <label class="reg-role-label" for="role_buyer">
+                                <span class="role-icon">🛍️</span> Buyer
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" class="reg-role-input" name="role"
+                                   id="role_seller" value="seller">
+                            <label class="reg-role-label" for="role_seller">
+                                <span class="role-icon">🏪</span> Seller
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" class="reg-role-input" name="role"
+                                   id="role_rider" value="rider">
+                            <label class="reg-role-label" for="role_rider">
+                                <span class="role-icon">🏍️</span> Rider
+                            </label>
+                        </div>
+                    </div>
+
+                    {# ── Personal info ── #}
+                    <div class="reg-section">Personal Information</div>
+                    <div class="reg-grid">
+                        <div class="reg-field">
+                            <label class="reg-label">First Name</label>
+                            <input type="text" class="reg-input" name="first_name" placeholder="Juan">
+                        </div>
+                        <div class="reg-field">
+                            <label class="reg-label">Last Name</label>
+                            <input type="text" class="reg-input" name="last_name" placeholder="Dela Cruz">
+                        </div>
+                        <div class="reg-field">
+                            <label class="reg-label">Username <span class="req">*</span></label>
+                            <input type="text" class="reg-input" name="username" required placeholder="yourhandle">
+                        </div>
+                        <div class="reg-field">
+                            <label class="reg-label">Phone</label>
+                            <input type="tel" class="reg-input" name="phone" placeholder="+63 9XX XXX XXXX">
+                        </div>
+                        <div class="reg-field reg-grid-full">
+                            <label class="reg-label">Email <span class="req">*</span></label>
+                            <input type="email" class="reg-input" name="email" required placeholder="you@email.com">
+                            <span class="reg-hint">A verification link will be sent to this address.</span>
+                        </div>
+                    </div>
+
+                    {# ── Password ── #}
+                    <div class="reg-section">Password</div>
+                    <div class="reg-grid">
+                        <div class="reg-field">
+                            <label class="reg-label">Password <span class="req">*</span></label>
+                            <div class="reg-input-wrap">
+                                <input type="password" class="reg-input" name="password"
+                                       id="pw-field" required placeholder="Min. 8 characters">
+                                <button type="button" class="reg-eye" data-target="pw-field">👁</button>
+                            </div>
+                            <div class="reg-pw-bar-wrap"><div class="reg-pw-bar" id="pw-bar"></div></div>
+                            <div class="reg-pw-reqs">
+                                <div class="reg-pw-reqs-title">Requirements</div>
+                                <div class="reg-req" id="req-len">At least 8 characters</div>
+                                <div class="reg-req" id="req-upper">One uppercase letter (A–Z)</div>
+                                <div class="reg-req" id="req-num">One number (0–9)</div>
+                                <div class="reg-req" id="req-special">One special character (!@#$…)</div>
+                            </div>
+                        </div>
+                        <div class="reg-field">
+                            <label class="reg-label">Confirm Password <span class="req">*</span></label>
+                            <div class="reg-input-wrap">
+                                <input type="password" class="reg-input" name="confirm_password"
+                                       id="cpw-field" required placeholder="Repeat password">
+                                <button type="button" class="reg-eye" data-target="cpw-field">👁</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Address ── #}
+                    <div class="reg-section">Delivery Address</div>
+                    {{ psgc_address() }}
+
+                    {# ── Valid ID ── #}
+                    <div class="reg-section">Identity Verification</div>
+                    <div class="reg-field">
+                        <label class="reg-label">Valid ID <span class="req">*</span></label>
+                        <input type="file" class="reg-file" name="valid_id" accept="image/*,.pdf" required>
+                        <span class="reg-hint">Government-issued ID — JPG, PNG, or PDF</span>
+                    </div>
+
+                    {# ── Seller fields ── #}
+                    <div id="seller_fields" class="reg-role-section">
+                        <div class="reg-section">Shop Information</div>
+                        <div class="reg-grid">
+                            <div class="reg-field">
+                                <label class="reg-label">Store Name <span class="req">*</span></label>
+                                <input type="text" class="reg-input" name="shop_name"
+                                       id="shop_name" placeholder="My Awesome Store">
+                            </div>
+                            <div class="reg-field">
+                                <label class="reg-label">Business Permit <span class="req">*</span></label>
+                                <input type="file" class="reg-file" name="business_permit"
+                                       id="business_permit" accept="image/*,.pdf">
+                                <span class="reg-hint">JPG, PNG, or PDF</span>
+                            </div>
+                            <div class="reg-field reg-grid-full">
+                                <label class="reg-label">Store Description</label>
+                                <textarea class="reg-textarea" name="shop_description"
+                                          placeholder="Brief description of your store..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Rider fields ── #}
+                    <div id="rider_fields" class="reg-role-section">
+                        <div class="reg-section">Rider Information</div>
+                        <div class="reg-grid">
+                            <div class="reg-field">
+                                <label class="reg-label">Vehicle Type</label>
+                                <select class="reg-select" name="vehicle_type">
+                                    <option value="">— Select —</option>
+                                    <option value="Motorcycle">Motorcycle</option>
+                                    <option value="Bicycle">Bicycle</option>
+                                    <option value="Car">Car</option>
+                                    <option value="Van">Van</option>
+                                </select>
+                            </div>
+                            <div class="reg-field">
+                                <label class="reg-label">Plate Number <span class="req">*</span></label>
+                                <input type="text" class="reg-input" name="plate_number"
+                                       id="plate_number" placeholder="e.g. ABC 1234">
+                            </div>
+                            <div class="reg-field reg-grid-full">
+                                <label class="reg-label">Driver's License <span class="req">*</span></label>
+                                <input type="file" class="reg-file" name="drivers_license"
+                                       id="drivers_license" accept="image/*,.pdf">
+                                <span class="reg-hint">JPG, PNG, or PDF</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reg-note">
+                        ℹ️ After verifying your email, your account will be reviewed by our admin team before activation — usually within 1–2 business days.
+                    </div>
+
+                    <button type="submit" class="reg-submit">Create Account</button>
+                </form>
+            </div>
+            <div class="reg-footer">
+                Already have an account? <a href="{{ url_for('auth.login') }}">Sign in here</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ── Role toggle ──
+const roleInputs     = document.querySelectorAll('input[name="role"]')
+const sellerFields   = document.getElementById('seller_fields')
+const riderFields    = document.getElementById('rider_fields')
+const shopName       = document.getElementById('shop_name')
+const businessPermit = document.getElementById('business_permit')
+const driversLicense = document.getElementById('drivers_license')
+const plateNumber    = document.getElementById('plate_number')
+
+function updateRole() {
+    const role = document.querySelector('input[name="role"]:checked').value
+    sellerFields.classList.toggle('visible', role === 'seller')
+    riderFields.classList.toggle('visible',  role === 'rider')
+    shopName.required       = role === 'seller'
+    businessPermit.required = role === 'seller'
+    driversLicense.required = role === 'rider'
+    plateNumber.required    = role === 'rider'
+}
+roleInputs.forEach(r => r.addEventListener('change', updateRole))
+updateRole()
+
+// ── Eye toggle ──
+document.querySelectorAll('.reg-eye').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const inp = document.getElementById(btn.dataset.target)
+        inp.type = inp.type === 'password' ? 'text' : 'password'
+        btn.textContent = inp.type === 'password' ? '👁' : '🙈'
+    })
+})
+
+// ── Password strength ──
+const pwField = document.getElementById('pw-field')
+const pwBar   = document.getElementById('pw-bar')
+const reqs    = {
+    len:     { el: document.getElementById('req-len'),     fn: v => v.length >= 8 },
+    upper:   { el: document.getElementById('req-upper'),   fn: v => /[A-Z]/.test(v) },
+    num:     { el: document.getElementById('req-num'),     fn: v => /[0-9]/.test(v) },
+    special: { el: document.getElementById('req-special'), fn: v => /[^A-Za-z0-9]/.test(v) },
+}
+pwField.addEventListener('input', () => {
+    const v = pwField.value
+    let score = 0
+    for (const key in reqs) {
+        const met = reqs[key].fn(v)
+        reqs[key].el.classList.toggle('met', met)
+        if (met) score++
+    }
+    const pct   = score * 25
+    const color = ['#f87171','#fb923c','#facc15','#4ade80'][score - 1] || '#374151'
+    pwBar.style.width      = pct + '%'
+    pwBar.style.background = color
+})
+</script>
+{% endblock %}

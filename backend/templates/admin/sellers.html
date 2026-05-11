@@ -1,0 +1,65 @@
+{% extends "admin/admin_base.html" %}
+{% set active_page = 'sellers' %}
+
+{% block title %}Sellers — Mode S7vn Admin{% endblock %}
+{% block page_title %}Manage Sellers{% endblock %}
+
+{% block content %}
+<div class="adm-page-header">
+    <div>
+        <h1 class="adm-page-title">Manage Sellers</h1>
+        <p class="adm-page-sub">{{ sellers.total }} registered sellers</p>
+    </div>
+</div>
+
+<div class="adm-card">
+    <table class="adm-table">
+        <thead>
+            <tr>
+                <th>Seller</th>
+                <th>Shop Name</th>
+                <th>Products</th>
+                <th>Orders</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for seller in sellers.items %}
+            <tr>
+                <td>
+                    <div style="font-weight:600;color:#1a1a2e;">{{ seller.username }}</div>
+                    <div style="font-size:.78rem;color:#888;">{{ seller.email }}</div>
+                </td>
+                <td style="color:#555;">{{ seller.shop_name or '—' }}</td>
+                <td>
+                    <span style="font-size:.78rem;background:#f3f4f6;color:#374151;padding:.25rem .65rem;border-radius:999px;font-weight:600;">
+                        {{ seller.products.count() }}
+                    </span>
+                </td>
+                <td>
+                    <span style="font-size:.78rem;background:#dbeafe;color:#1e40af;padding:.25rem .65rem;border-radius:999px;font-weight:600;">
+                        {{ seller.seller_orders.count() }}
+                    </span>
+                </td>
+                <td>
+                    <span class="adm-badge {{ 'adm-badge-active' if seller.is_active else 'adm-badge-inactive' }}">
+                        {{ 'Active' if seller.is_active else 'Inactive' }}
+                    </span>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem;">No sellers registered yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if sellers.pages > 1 %}
+    <div class="adm-pagination">
+        {% for p in sellers.iter_pages() %}
+            {% if p %}<a href="{{ url_for('admin.manage_sellers', page=p) }}" class="adm-page-btn {{ 'active' if p == sellers.page }}">{{ p }}</a>
+            {% else %}<span class="adm-page-btn">…</span>{% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

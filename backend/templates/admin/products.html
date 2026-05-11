@@ -1,0 +1,72 @@
+{% extends "admin/admin_base.html" %}
+{% set active_page = 'products' %}
+
+{% block title %}Products — Mode S7vn Admin{% endblock %}
+{% block page_title %}Manage Products{% endblock %}
+
+{% block content %}
+<div class="adm-page-header">
+    <div>
+        <h1 class="adm-page-title">Manage Products</h1>
+        <p class="adm-page-sub">{{ products.total }} total products</p>
+    </div>
+</div>
+
+<div class="adm-card">
+    <table class="adm-table">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Seller</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products.items %}
+            <tr>
+                <td style="font-weight:600;color:#1a1a2e;">{{ product.name }}</td>
+                <td style="color:#666;">{{ product.seller.username }}</td>
+                <td>
+                    {% if product.category %}
+                    <span style="font-size:.72rem;background:#f3f4f6;color:#555;padding:.2rem .6rem;border-radius:999px;">{{ product.category }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="font-weight:600;">₱{{ "%.2f"|format(product.price) }}</td>
+                <td>
+                    <span class="adm-badge {{ 'adm-badge-active' if product.stock > 0 else 'adm-badge-cancelled' }}">
+                        {{ product.stock }}
+                    </span>
+                </td>
+                <td>
+                    <span class="adm-badge {{ 'adm-badge-active' if product.is_active else 'adm-badge-inactive' }}">
+                        {{ 'Active' if product.is_active else 'Inactive' }}
+                    </span>
+                </td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin.toggle_product', product_id=product.id) }}">
+                        <button type="submit" class="adm-btn {{ 'adm-btn-danger' if product.is_active else 'adm-btn-approve' }}">
+                            {{ 'Deactivate' if product.is_active else 'Activate' }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;color:#aaa;padding:2rem;">No products found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if products.pages > 1 %}
+    <div class="adm-pagination">
+        {% for p in products.iter_pages() %}
+            {% if p %}<a href="{{ url_for('admin.manage_products', page=p) }}" class="adm-page-btn {{ 'active' if p == products.page }}">{{ p }}</a>
+            {% else %}<span class="adm-page-btn">…</span>{% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

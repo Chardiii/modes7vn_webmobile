@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Rider — Mode S7vn{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: #f4f5f7;
+            color: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ── Sidebar ── */
+        .rdr-sidebar {
+            width: 256px;
+            min-height: 100vh;
+            background: #111827;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .rdr-logo {
+            padding: 1.5rem 1.25rem 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,.06);
+        }
+        .rdr-logo-inner { display: flex; align-items: center; gap: .75rem; }
+        .rdr-logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #c8a96e, #e8c97e);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; flex-shrink: 0;
+        }
+        .rdr-logo-name {
+            font-size: 1rem; font-weight: 800;
+            letter-spacing: 2px; text-transform: uppercase; color: #c8a96e;
+        }
+        .rdr-logo-sub {
+            font-size: .68rem; color: #6b7280;
+            letter-spacing: 1px; text-transform: uppercase;
+        }
+
+        .rdr-nav {
+            flex: 1; padding: 1rem .75rem;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .rdr-nav-section {
+            font-size: .62rem; font-weight: 700;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            color: #4b5563; padding: .85rem .5rem .3rem;
+        }
+        .rdr-nav-link {
+            display: flex; align-items: center; gap: .65rem;
+            padding: .55rem .75rem; border-radius: 8px;
+            font-size: .84rem; font-weight: 500;
+            color: #9ca3af; text-decoration: none;
+            transition: background .15s, color .15s;
+            border-left: 3px solid transparent;
+        }
+        .rdr-nav-link:hover { background: rgba(255,255,255,.05); color: #f9fafb; }
+        .rdr-nav-link.active {
+            background: #1f2937; color: #f9fafb;
+            border-left-color: #c8a96e; font-weight: 600;
+        }
+        .rdr-nav-icon { width: 18px; text-align: center; font-size: .9rem; flex-shrink: 0; }
+
+        .rdr-sidebar-footer {
+            padding: .75rem;
+            border-top: 1px solid rgba(255,255,255,.06);
+        }
+        .rdr-nav-link.logout { color: #f87171; }
+        .rdr-nav-link.logout:hover { background: rgba(248,113,113,.08); color: #f87171; }
+
+        /* ── Main wrapper ── */
+        .rdr-main-wrap {
+            margin-left: 256px; flex: 1;
+            display: flex; flex-direction: column; min-height: 100vh;
+        }
+
+        /* ── Topbar ── */
+        .rdr-topbar {
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: 0 2rem; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 50;
+        }
+        .rdr-topbar-title { font-size: 1.1rem; font-weight: 700; color: #111827; }
+        .rdr-topbar-right { display: flex; align-items: center; gap: 1rem; }
+        .rdr-user-pill {
+            display: flex; align-items: center; gap: .6rem;
+            background: #3872ab; border: 1px solid #e5e7eb;
+            border-radius: 999px; padding: .35rem .85rem .35rem .5rem;
+            font-size: .82rem; font-weight: 600; color: #374151;
+            text-decoration: none;
+        }
+        .rdr-user-avatar {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, #c8a96e, #e8c97e);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .75rem; font-weight: 800; color: #fdfdfd;
+        }
+
+        /* ── Content ── */
+        .rdr-content { flex: 1; padding: 2rem; background: #f4f5f7; }
+
+        /* ── KPI grid ── */
+        .rdr-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem; margin-bottom: 1.5rem;
+        }
+        @media (max-width: 900px) { .rdr-kpi-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 560px) { .rdr-kpi-grid { grid-template-columns: 1fr; } }
+
+        .rdr-kpi {
+            background: #fff; border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+        }
+        .rdr-kpi-header {
+            display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: .75rem;
+        }
+        .rdr-kpi-label {
+            font-size: .75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: .6px; color: #6b7280;
+        }
+        .rdr-kpi-icon {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .kpi-amber  { background: #fef3c7; }
+        .kpi-blue   { background: #dbeafe; }
+        .kpi-green  { background: #d1fae5; }
+        .rdr-kpi-value {
+            font-size: 1.75rem; font-weight: 800;
+            color: #111827; line-height: 1; margin-bottom: .3rem;
+        }
+        .rdr-kpi-value.green { color: #059669; }
+        .rdr-kpi-sub { font-size: .75rem; color: #9ca3af; }
+
+        /* ── Cards ── */
+        .rdr-card {
+            background: #ffffff; border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            overflow: hidden; margin-bottom: 1.25rem;
+        }
+        .rdr-card-header {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem; border-bottom: 1px solid #f3f4f6;
+        }
+        .rdr-card-title { font-size: .9rem; font-weight: 700; color: #111827; }
+
+        /* ── Badges ── */
+        .rdr-badge {
+            font-size: .68rem; font-weight: 700;
+            padding: .25rem .65rem; border-radius: 999px;
+            display: inline-block; white-space: nowrap;
+        }
+        .rdr-badge-assigned  { background: #cffafe; color: #155e75; }
+        .rdr-badge-shipped   { background: #f3f4f6; color: #374151; }
+        .rdr-badge-delivered { background: #d1fae5; color: #065f46; }
+        .rdr-badge-pending   { background: #fef3c7; color: #92400e; }
+        .rdr-badge-active    { background: #d1fae5; color: #065f46; }
+        .rdr-badge-inactive  { background: #fee2e2; color: #991b1b; }
+
+        /* ── Buttons ── */
+        .rdr-btn {
+            font-size: .78rem; font-weight: 600;
+            padding: .4rem .95rem; border-radius: 6px;
+            border: none; cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; gap: .35rem;
+            transition: opacity .15s, transform .1s;
+        }
+        .rdr-btn:hover { opacity: .85; transform: translateY(-1px); }
+        .rdr-btn-blue    { background: #1d4ed8; color: #fff; }
+        .rdr-btn-green   { background: #059669; color: #fff; }
+        .rdr-btn-ghost   { background: #f3f4f6; color: #374151; }
+
+        /* ── Table ── */
+        .rdr-table { width: 100%; border-collapse: collapse; }
+        .rdr-table thead th {
+            font-size: .7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .6px;
+            color: #6b7280; padding: .75rem 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            background: #fafafa; white-space: nowrap; text-align: left;
+        }
+        .rdr-table tbody td {
+            padding: .85rem 1.5rem;
+            border-bottom: 1px solid #f9fafb;
+            font-size: .85rem; color: #374151; vertical-align: middle;
+        }
+        .rdr-table tbody tr:last-child td { border-bottom: none; }
+        .rdr-table tbody tr:hover td { background: #fafbff; }
+
+        /* ── Page header ── */
+        .rdr-page-header {
+            display: flex; align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem;
+        }
+        .rdr-page-title { font-size: 1.35rem; font-weight: 800; color: #111827; margin: 0; }
+        .rdr-page-sub   { font-size: .82rem; color: #6b7280; margin-top: .2rem; }
+
+        /* ── Toast ── */
+        .toast-container { z-index: 9999; }
+        .toast { min-width: 280px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+        .toast-success { background: #065f46; color: #fff; }
+        .toast-danger  { background: #991b1b; color: #fff; }
+        .toast-warning { background: #92400e; color: #fff; }
+        .toast-info    { background: #1e40af; color: #fff; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .rdr-sidebar { transform: translateX(-100%); }
+            .rdr-main-wrap { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    {# ── Sidebar ── #}
+    <aside class="rdr-sidebar">
+        <div class="rdr-logo">
+            <div class="rdr-logo-inner">
+                <div class="rdr-logo-icon">🏍️</div>
+                <div>
+                    <div class="rdr-logo-name">Mode S7vn</div>
+                    <div class="rdr-logo-sub">Rider Panel</div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="rdr-nav">
+            <div class="rdr-nav-section">Overview</div>
+            <a href="{{ url_for('main.dashboard') }}"
+               class="rdr-nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                <span class="rdr-nav-icon">📦</span> My Deliveries
+            </a>
+
+            <div class="rdr-nav-section">Account</div>
+            <a href="{{ url_for('auth.profile') }}"
+               class="rdr-nav-link {% if active_page == 'profile' %}active{% endif %}">
+                <span class="rdr-nav-icon">👤</span> Profile
+            </a>
+        </nav>
+
+        <div class="rdr-sidebar-footer">
+            <a href="{{ url_for('auth.logout') }}" class="rdr-nav-link logout">
+                <span class="rdr-nav-icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    {# ── Main wrapper ── #}
+    <div class="rdr-main-wrap">
+
+        <header class="rdr-topbar">
+            <span class="rdr-topbar-title">{% block page_title %}Rider Dashboard{% endblock %}</span>
+            <div class="rdr-topbar-right">
+                <div class="toast-container position-fixed top-0 end-0 p-3">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% for category, message in messages %}
+                        <div class="toast align-items-center border-0 toast-{{ category }} show"
+                             role="alert" data-bs-autohide="true" data-bs-delay="4000">
+                            <div class="d-flex">
+                                <div class="toast-body">{{ message }}</div>
+                                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                                        data-bs-dismiss="toast"></button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endwith %}
+                </div>
+                <a href="{{ url_for('auth.profile') }}" class="rdr-user-pill">
+                    <div class="rdr-user-avatar">{{ current_user.username[0].upper() }}</div>
+                    {{ current_user.username }}
+                </a>
+            </div>
+        </header>
+
+        <main class="rdr-content">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.toast').forEach(el => new bootstrap.Toast(el, {delay:4000}).show())
+        // Auto-inject CSRF token into POST forms
+        const _csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        if (_csrf) {
+            document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(f => {
+                if (!f.querySelector('input[name="csrf_token"]')) {
+                    const i = document.createElement('input')
+                    i.type = 'hidden'; i.name = 'csrf_token'; i.value = _csrf
+                    f.appendChild(i)
+                }
+            })
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
