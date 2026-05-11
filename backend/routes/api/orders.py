@@ -6,14 +6,27 @@ from . import api_bp
 import uuid
 
 
+def _mask_phone(phone):
+    """Return phone with first digits masked: e.g. *******789"""
+    if not phone:
+        return None
+    p = phone.strip()
+    visible = min(4, len(p))
+    return '*' * (len(p) - visible) + p[-visible:]
+
+
 def _order_dict(o):
+    base = request.host_url.rstrip('/')
     return {
         'id': o.id,
         'order_number': o.order_number,
         'status': o.status,
+        'subtotal': round(o.total_amount - (o.shipping_fee or 0.0), 2),
+        'shipping_fee': o.shipping_fee or 0.0,
         'total_amount': o.total_amount,
         'delivery_address': o.delivery_address,
         'delivery_city': o.delivery_city,
+        'delivery_province': o.delivery_province,
         'delivery_zip': o.delivery_zip,
         'cancel_reason': o.cancel_reason,
         'cancel_status': o.cancel_status,
@@ -22,8 +35,12 @@ def _order_dict(o):
         'delivered_at': o.delivered_at.isoformat() if o.delivered_at else None,
         'buyer': o.buyer.username if o.buyer else None,
         'buyer_id': o.buyer_id,
+        'buyer_name': f"{o.buyer.first_name or ''} {o.buyer.last_name or ''}".strip() if o.buyer else None,
+        'buyer_phone': _mask_phone(o.buyer.phone) if o.buyer else None,
         'seller': o.seller_user.username if o.seller_user else None,
         'seller_id': o.seller_id,
+        'seller_name': f"{o.seller_user.first_name or ''} {o.seller_user.last_name or ''}".strip() if o.seller_user else None,
+        'seller_phone': _mask_phone(o.seller_user.phone) if o.seller_user else None,
         'rider': o.rider.username if o.rider else None,
         'payment': {
             'method': o.payment.method,
@@ -39,6 +56,14 @@ def _order_dict(o):
                 'subtotal': i.subtotal,
                 'variant_size': i.variant_size,
                 'variant_color': i.variant_color,
+                'image_url': (
+                    f"{base}/static/uploads/{i.product.images.filter_by(is_primary=True).first().image_url}"
+                    if i.product and i.product.images.filter_by(is_primary=True).first()
+                    else (
+                        f"{base}/static/uploads/{i.product.images.first().image_url}"
+                        if i.product and i.product.images.first() else None
+                    )
+                ),
             }
             for i in o.items
         ],
@@ -77,6 +102,7 @@ def api_get_cart():
             'subtotal': item.subtotal,
             'image_url': image_url,
             'variant_size': item.variant.size if item.variant else None,
+            'seller_id': item.product.seller_id,
         })
     total = round(sum(i['subtotal'] for i in result), 2)
     return jsonify({'items': result, 'total': total})
@@ -177,21 +203,21 @@ def api_checkout():
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
 
-    delivery_address = data.get('delivery_address', '').strip()
-    delivery_city    = data.get('delivery_city', '').strip()
-    delivery_zip     = data.get('delivery_zip', '').strip()
-    payment_method   = data.get('payment_method', 'cod')  # cod | online
+    delivery_address  = data.get('delivery_address', '').strip()
+    delivery_city     = data.get('delivery_city', '').strip()
+    delivery_province = data.get('delivery_province', '').strip()
+    delivery_zip      = data.get('delivery_zip', '').strip()
+    payment_method    = data.get('payment_method', 'cod')
 
-    if not delivery_address or not delivery_city:
-        return jsonify({'error': 'Delivery address and city required'}), 400
+    if not delivery_address or not delivery_city or not delivery_province:
+        return jsonify({'error': 'Delivery address, city and province are required'}), 400
 
     cart_items = CartItem.query.filter_by(user_id=user_id).all()
     active = [i for i in cart_items if i.product and i.product.is_active]
     if not active:
         return jsonify({'error': 'Cart is empty'}), 400
 
-    # Filter by selected product/variant IDs if provided
-    selected = data.get('selected_items')  # list of {product_id, variant_id}
+    selected = data.get('selected_items')
     if selected:
         def matches(item):
             for s in selected:
@@ -202,21 +228,36 @@ def api_checkout():
         if not active:
             return jsonify({'error': 'No valid items selected'}), 400
 
-    # Group items by seller
     from collections import defaultdict
+    from shipping import calculate_shipping
     seller_items = defaultdict(list)
     for item in active:
         seller_items[item.product.seller_id].append(item)
 
     orders = []
     for seller_id, items in seller_items.items():
-        total = round(sum(i.subtotal for i in items), 2)
+        seller = User.query.get(seller_id)
+        subtotal = round(sum(i.subtotal for i in items), 2)
+
+        shipping = calculate_shipping(
+            seller_province=seller.province or '' if seller else '',
+            seller_city=seller.municipality or '' if seller else '',
+            buyer_province=delivery_province,
+            buyer_city=delivery_city,
+        )
+        shipping_fee = shipping['fee']
+        total = round(subtotal + shipping_fee, 2)
+
         order = Order(
             order_number=f"ORD-{uuid.uuid4().hex[:8].upper()}",
             buyer_id=user_id, seller_id=seller_id,
             delivery_address=delivery_address,
-            delivery_city=delivery_city, delivery_zip=delivery_zip,
-            total_amount=total, status=OrderStatus.PENDING.value,
+            delivery_city=delivery_city,
+            delivery_province=delivery_province,
+            delivery_zip=delivery_zip,
+            shipping_fee=shipping_fee,
+            total_amount=total,
+            status=OrderStatus.PENDING.value,
         )
         db.session.add(order)
         db.session.flush()
@@ -236,7 +277,6 @@ def api_checkout():
         ))
         orders.append(order)
 
-    # Only remove checked-out items from cart
     for item in active:
         CartItem.query.filter_by(
             user_id=user_id,

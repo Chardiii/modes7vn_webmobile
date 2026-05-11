@@ -360,24 +360,38 @@ def checkout():
             flash('No valid items.', 'warning')
             return redirect(url_for('orders.cart'))
 
-        delivery_address = request.form.get('delivery_address', '').strip()
-        delivery_city    = request.form.get('delivery_city', '').strip()
-        delivery_zip     = request.form.get('delivery_zip', '').strip()
-        payment_method   = request.form.get('payment_method', 'cod')
+        delivery_address  = request.form.get('delivery_address', '').strip()
+        delivery_city     = request.form.get('delivery_city', '').strip()
+        delivery_province = request.form.get('delivery_province', '').strip()
+        delivery_zip      = request.form.get('delivery_zip', '').strip()
+        payment_method    = request.form.get('payment_method', 'cod')
 
-        if not delivery_address or not delivery_city:
-            flash('Delivery address and city are required.', 'danger')
+        if not delivery_address or not delivery_city or not delivery_province:
+            flash('Delivery address, city and province are required.', 'danger')
             return render_template('checkout.html', cart_items=cart_items, total=total, mode=mode)
 
+        from shipping import calculate_shipping
         seller_id = cart_items[0]['product'].seller_id
+        seller    = cart_items[0]['product'].seller
+        shipping  = calculate_shipping(
+            seller_province=seller.province or '',
+            seller_city=seller.municipality or '',
+            buyer_province=delivery_province,
+            buyer_city=delivery_city,
+        )
+        shipping_fee  = shipping['fee']
+        order_total   = round(total + shipping_fee, 2)
+
         order = Order(
             order_number=f"ORD-{uuid.uuid4().hex[:8].upper()}",
             buyer_id=current_user.id,
             seller_id=seller_id,
             delivery_address=delivery_address,
             delivery_city=delivery_city,
+            delivery_province=delivery_province,
             delivery_zip=delivery_zip,
-            total_amount=total,
+            shipping_fee=shipping_fee,
+            total_amount=order_total,
             status=OrderStatus.PENDING.value
         )
         db.session.add(order)
@@ -438,7 +452,7 @@ def checkout():
 
         db.session.add(Payment(
             order_id=order.id,
-            amount=total,
+            amount=order_total,
             method=payment_method,
             status=PaymentStatus.PENDING
         ))
@@ -456,7 +470,7 @@ def checkout():
         if payment_method == 'online':
             return redirect(url_for('payments.create_payment_link', order_id=order.id))
         
-        flash('Order placed! Waiting for seller to verify.', 'success')
+        flash(f'Order placed! Shipping fee: ₱{shipping_fee:.0f}. Waiting for seller to verify.', 'success')
         return redirect(url_for('orders.order_detail', order_id=order.id))
 
     cart_items, total = build_items()

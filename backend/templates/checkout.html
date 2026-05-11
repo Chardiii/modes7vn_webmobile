@@ -15,31 +15,77 @@
         </div>
 
         <form method="POST" action="{{ url_for('orders.checkout', mode=mode) }}" id="checkout-form" data-validate>
+            <input type="hidden" id="seller-id" value="{{ cart_items[0]['product'].seller_id if cart_items else '' }}">
 
             {# Delivery Address #}
             <div class="co-card mb-4">
                 <div class="co-card-header">
                     <span class="co-card-icon">📍</span>
                     <h5 class="co-card-title">Delivery Address</h5>
+                    {% set has_saved = current_user.municipality and current_user.province %}
+                    {% if has_saved %}
+                    <button type="button" class="co-addr-toggle ms-auto" id="addr-toggle-btn"
+                            onclick="toggleAddressMode()">
+                        Use Different Address
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="co-card-body">
-                    <div class="mb-3">
-                        <label class="co-label">Street Address <span class="text-danger">*</span></label>
-                        <textarea class="co-input" name="delivery_address" rows="2" required
-                            placeholder="House/Unit No., Street, Barangay">{{ current_user.full_address or '' }}</textarea>
+
+                    {# ── Saved address display (default) ── #}
+                    {% if has_saved %}
+                    <div id="addr-saved">
+                        <div class="co-saved-addr">
+                            <div class="co-saved-addr-icon">🏠</div>
+                            <div class="co-saved-addr-body">
+                                <div class="co-saved-addr-line">{{ current_user.full_address }}</div>
+                                <div class="co-saved-addr-sub">
+                                    {{ current_user.municipality }},
+                                    {{ current_user.province }}
+                                    {% if current_user.zip_code %} {{ current_user.zip_code }}{% endif %}
+                                </div>
+                                <span class="co-saved-addr-badge">Saved Address</span>
+                            </div>
+                        </div>
+                        {# Hidden inputs that submit the saved address #}
+                        <input type="hidden" name="delivery_address"  id="saved-delivery-address"  value="{{ current_user.full_address }}">
+                        <input type="hidden" name="delivery_city"     id="saved-delivery-city"     value="{{ current_user.municipality or current_user.city or '' }}">
+                        <input type="hidden" name="delivery_province" id="saved-delivery-province" value="{{ current_user.province or '' }}">
+                        <input type="hidden" name="delivery_zip"      id="saved-delivery-zip"      value="{{ current_user.zip_code or '' }}">
                     </div>
-                    <div class="co-row-2">
-                        <div>
-                            <label class="co-label">City / Municipality <span class="text-danger">*</span></label>
-                            <input type="text" class="co-input" name="delivery_city" required
-                                value="{{ current_user.municipality or current_user.city or '' }}">
+                    {% endif %}
+
+                    {# ── Editable address form ── #}
+                    <div id="addr-form" {% if has_saved %}style="display:none"{% endif %}>
+                        <div class="mb-3">
+                            <label class="co-label">Street Address <span class="text-danger">*</span></label>
+                            <textarea class="co-input" name="delivery_address" id="form-delivery-address" rows="2"
+                                placeholder="House/Unit No., Street, Barangay"
+                                {% if not has_saved %}required{% endif %}>{{ current_user.full_address or '' }}</textarea>
+                        </div>
+                        <div class="co-row-2 mb-3">
+                            <div>
+                                <label class="co-label">City / Municipality <span class="text-danger">*</span></label>
+                                <input type="text" class="co-input" name="delivery_city" id="form-delivery-city"
+                                    {% if not has_saved %}required{% endif %}
+                                    value="{{ current_user.municipality or current_user.city or '' }}"
+                                    onblur="estimateShipping()">
+                            </div>
+                            <div>
+                                <label class="co-label">Province <span class="text-danger">*</span></label>
+                                <input type="text" class="co-input" name="delivery_province" id="form-delivery-province"
+                                    {% if not has_saved %}required{% endif %}
+                                    value="{{ current_user.province or '' }}"
+                                    onblur="estimateShipping()">
+                            </div>
                         </div>
                         <div>
                             <label class="co-label">ZIP Code</label>
-                            <input type="text" class="co-input" name="delivery_zip"
+                            <input type="text" class="co-input" name="delivery_zip" id="form-delivery-zip"
                                 value="{{ current_user.zip_code or '' }}">
                         </div>
                     </div>
+
                 </div>
             </div>
 
@@ -150,7 +196,7 @@
             {# Summary + actions #}
             <div class="co-summary-bar">
                 <div class="co-summary-total">
-                    <span class="co-summary-label">Total</span>
+                    <span class="co-summary-label">Total (incl. shipping)</span>
                     <span class="co-summary-amount" id="co-total">
                         ₱{{ "%.2f"|format(total) }}
                     </span>
@@ -199,9 +245,9 @@
                     <span>Subtotal</span>
                     <span id="co-sidebar-total">₱{{ "%.2f"|format(total) }}</span>
                 </div>
-                <div class="co-summary-row">
+                <div class="co-summary-row" id="shipping-row">
                     <span>Shipping</span>
-                    <span class="text-success fw-bold">Free</span>
+                    <span id="co-sidebar-shipping">—</span>
                 </div>
                 <div class="co-summary-row co-summary-grand">
                     <span>Total</span>
@@ -255,7 +301,55 @@
 .co-card-hint  { font-size: .75rem; color: #aaa; margin-left: auto; }
 .co-card-body  { padding: 1.25rem; }
 
-/* Inputs */
+/* Address toggle button */
+.co-addr-toggle {
+    background: none;
+    border: 1.5px solid var(--brand-accent, #FFD966);
+    color: var(--brand-accent, #FFD966);
+    font-size: .78rem;
+    font-weight: 700;
+    padding: .3rem .9rem;
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: .3px;
+    transition: background .2s, color .2s;
+    white-space: nowrap;
+}
+.co-addr-toggle:hover {
+    background: var(--brand-accent, #FFD966);
+    color: #0a0c10;
+}
+
+/* Saved address card */
+.co-saved-addr {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    background: #faf9f6;
+    border: 1.5px solid rgba(255,215,0,.35);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+}
+.co-saved-addr-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: .1rem; }
+.co-saved-addr-body { flex: 1; }
+.co-saved-addr-line {
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--brand-dark, #1a1a2e);
+    margin-bottom: .2rem;
+}
+.co-saved-addr-sub  { font-size: .82rem; color: #888; margin-bottom: .5rem; }
+.co-saved-addr-badge {
+    display: inline-block;
+    background: rgba(255,215,0,.2);
+    color: #b8860b;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    letter-spacing: .3px;
+}
+
 .co-label { font-size: .78rem; font-weight: 600; color: #666; letter-spacing: .3px; display: block; margin-bottom: .35rem; }
 .co-input {
     width: 100%;
@@ -403,31 +497,105 @@ function coAdjust(btn, delta) {
 }
 
 function coRecalc() {
-    let grand = 0
+    let subtotal = 0
 
     document.querySelectorAll('.co-table tbody tr').forEach((row, i) => {
         const input    = row.querySelector('.co-qty-input')
-        const subtotal = row.querySelector('.co-subtotal')
+        const subtotalEl = row.querySelector('.co-subtotal')
         const sideItem = document.querySelectorAll('.co-item-subtotal')[i]
-        if (!input || !subtotal) return
+        if (!input || !subtotalEl) return
 
-        const price = parseFloat(subtotal.dataset.price)
+        const price = parseFloat(subtotalEl.dataset.price)
         const qty   = Math.max(1, parseInt(input.value) || 1)
         const sub   = price * qty
 
-        subtotal.textContent = '₱' + sub.toFixed(2)
+        subtotalEl.textContent = '₱' + sub.toFixed(2)
         if (sideItem) sideItem.textContent = '₱' + sub.toFixed(2)
-        grand += sub
+        subtotal += sub
     })
 
-    const fmt = '₱' + grand.toFixed(2)
+    const shippingEl = document.getElementById('co-sidebar-shipping')
+    const shippingFee = shippingEl && shippingEl.dataset.fee ? parseFloat(shippingEl.dataset.fee) : 0
+    const grand = subtotal + shippingFee
+
+    const fmt = '₱' + subtotal.toFixed(2)
     const el1 = document.getElementById('co-total')
     const el2 = document.getElementById('co-sidebar-total')
     const el3 = document.getElementById('co-sidebar-grand')
-    if (el1) el1.textContent = fmt
+    if (el1) el1.textContent = '₱' + grand.toFixed(2)
     if (el2) el2.textContent = fmt
-    if (el3) el3.textContent = fmt
+    if (el3) el3.textContent = '₱' + grand.toFixed(2)
 }
+
+// ── Address toggle ─────────────────────────────────────────────────
+let _usingDifferentAddress = false
+
+function toggleAddressMode() {
+    _usingDifferentAddress = !_usingDifferentAddress
+    const savedDiv  = document.getElementById('addr-saved')
+    const formDiv   = document.getElementById('addr-form')
+    const btn       = document.getElementById('addr-toggle-btn')
+
+    if (_usingDifferentAddress) {
+        // Show form, hide saved card
+        savedDiv.style.display = 'none'
+        formDiv.style.display  = 'block'
+        btn.textContent = 'Use Saved Address'
+        // Make form inputs required
+        formDiv.querySelectorAll('[id^=form-delivery-]').forEach(el => {
+            if (el.id !== 'form-delivery-zip') el.required = true
+        })
+        // Remove hidden saved inputs so they don't double-submit
+        document.querySelectorAll('[id^=saved-delivery-]').forEach(el => el.disabled = true)
+    } else {
+        // Show saved card, hide form
+        savedDiv.style.display = 'block'
+        formDiv.style.display  = 'none'
+        btn.textContent = 'Use Different Address'
+        // Remove required from form inputs
+        formDiv.querySelectorAll('[id^=form-delivery-]').forEach(el => el.required = false)
+        // Re-enable hidden saved inputs
+        document.querySelectorAll('[id^=saved-delivery-]').forEach(el => el.disabled = false)
+    }
+    estimateShipping()
+}
+
+// ── Get active city / province (saved or form) ───────────────────────────
+function getDeliveryCity()     { return _usingDifferentAddress ? document.getElementById('form-delivery-city')?.value.trim()     : document.getElementById('saved-delivery-city')?.value.trim() }
+function getDeliveryProvince() { return _usingDifferentAddress ? document.getElementById('form-delivery-province')?.value.trim() : document.getElementById('saved-delivery-province')?.value.trim() }
+
+function estimateShipping() {
+    const city       = getDeliveryCity()
+    const province   = getDeliveryProvince()
+    const shippingEl = document.getElementById('co-sidebar-shipping')
+    if (!city || !province || !shippingEl) return
+
+    const sellerId = document.getElementById('seller-id')?.value
+    if (!sellerId) return
+
+    shippingEl.textContent = '...'
+    fetch('/api/v1/shipping/estimate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({seller_id: parseInt(sellerId), delivery_city: city, delivery_province: province})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.fee !== undefined) {
+            const zoneLabels = {same_city: 'Same City', same_province: 'Same Province', inter_province: 'Inter-Province'}
+            shippingEl.innerHTML = '&#8369;' + data.fee.toFixed(2) + ' <small style="color:#aaa;font-size:.72rem;">(' + (zoneLabels[data.zone] || '') + ')</small>'
+            shippingEl.dataset.fee = data.fee
+            coRecalc()
+        }
+    })
+    .catch(() => { shippingEl.textContent = '\u2014' })
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('form-delivery-city')?.addEventListener('blur', estimateShipping)
+    document.getElementById('form-delivery-province')?.addEventListener('blur', estimateShipping)
+    estimateShipping()
+})
 
 function togglePayment(radio) {
     const codBadge = document.getElementById('cod-badge')

@@ -195,6 +195,7 @@ class ApiService {
   Future<Map<String, dynamic>> checkout({
     required String address,
     required String city,
+    required String province,
     String zip = '',
     List<Map<String, dynamic>> selectedItems = const [],
     String paymentMethod = 'cod',
@@ -202,6 +203,7 @@ class ApiService {
     final res = await _dio.post('/orders/checkout', data: {
       'delivery_address': address,
       'delivery_city': city,
+      'delivery_province': province,
       'delivery_zip': zip,
       'payment_method': paymentMethod,
       if (selectedItems.isNotEmpty)
@@ -211,6 +213,19 @@ class ApiService {
                   'variant_id': i['variant_id'],
                 })
             .toList(),
+    });
+    return res.data;
+  }
+
+  Future<Map<String, dynamic>> estimateShipping({
+    required int sellerId,
+    required String deliveryCity,
+    required String deliveryProvince,
+  }) async {
+    final res = await _dio.post('/shipping/estimate', data: {
+      'seller_id': sellerId,
+      'delivery_city': deliveryCity,
+      'delivery_province': deliveryProvince,
     });
     return res.data;
   }

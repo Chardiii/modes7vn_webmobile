@@ -20,12 +20,14 @@ class Order(db.Model):
     seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     rider_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
-    total_amount = db.Column(db.Float, nullable=False)
+    total_amount  = db.Column(db.Float, nullable=False)
+    shipping_fee  = db.Column(db.Float, default=0.0, nullable=False)
     status = db.Column(db.String(20), default=OrderStatus.PENDING.value)
-    
-    delivery_address = db.Column(db.Text)
-    delivery_city = db.Column(db.String(80))
-    delivery_zip = db.Column(db.String(10))
+
+    delivery_address  = db.Column(db.Text)
+    delivery_city     = db.Column(db.String(80))
+    delivery_province = db.Column(db.String(120))
+    delivery_zip      = db.Column(db.String(10))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
 import '../theme.dart';
@@ -247,12 +248,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Text(o['delivery_address'] ?? '',
                       style: GoogleFonts.inter(
                           color: AppColors.textPrimary, fontSize: 13)),
-                  Text(o['delivery_city'] ?? '',
-                      style: GoogleFonts.inter(
-                          color: AppColors.textMuted, fontSize: 12)),
+                  Text(
+                    [o['delivery_city'], o['delivery_province']]
+                        .where((s) => s != null && s.toString().isNotEmpty)
+                        .join(', '),
+                    style: GoogleFonts.inter(
+                        color: AppColors.textMuted, fontSize: 12)),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+
+            // ── Buyer / Seller info card ────────────────────────────────
+            if (user?['role'] != 'buyer' && o['buyer_name'] != null)
+              _PersonCard(
+                icon: Icons.person_outline,
+                label: 'BUYER',
+                name: o['buyer_name'] ?? o['buyer'] ?? '',
+                username: o['buyer'] ?? '',
+                phone: o['buyer_phone'],
+              ),
+            if (user?['role'] != 'seller' && o['seller_name'] != null)
+              _PersonCard(
+                icon: Icons.storefront_outlined,
+                label: 'SELLER',
+                name: o['seller_name'] ?? o['seller'] ?? '',
+                username: o['seller'] ?? '',
+                phone: o['seller_phone'],
+              ),
             const SizedBox(height: 12),
 
             // ── Items ─────────────────────────────────────────────────
@@ -260,10 +283,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               title: 'ITEMS (${items.length})',
               child: Column(
                 children: items.map<Widget>((item) {
+                  final imageUrl = item['image_url'] as String?;
+                  final size  = item['variant_size']  as String?;
+                  final color = item['variant_color'] as String?;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 14),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Product image
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: imageUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: 64, height: 64,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => _imgPlaceholder())
+                              : _imgPlaceholder(),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,16 +312,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                       color: AppColors.textPrimary,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13)),
-                              if (item['variant_size'] != null)
-                                Text(
-                                    'Size: ${item['variant_size']}${item['variant_color'] != null ? ' / ${item['variant_color']}' : ''}',
-                                    style: GoogleFonts.inter(
-                                        color: AppColors.textMuted,
-                                        fontSize: 11)),
-                              Text('x${item['quantity']}',
+                              if (size != null || color != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Wrap(spacing: 4, children: [
+                                    if (size != null) _Chip(size),
+                                    if (color != null) _Chip(color),
+                                  ]),
+                                ),
+                              const SizedBox(height: 4),
+                              Text('₱${item['price']} × ${item['quantity']}',
                                   style: GoogleFonts.inter(
-                                      color: AppColors.textMuted,
-                                      fontSize: 11)),
+                                      color: AppColors.textMuted, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -348,22 +389,52 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Text('TOTAL',
-                      style: GoogleFonts.inter(
-                          color: AppColors.textMuted,
-                          fontSize: 12,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.w600)),
-                  ShaderMask(
-                    shaderCallback: (b) => goldGradient.createShader(b),
-                    child: Text('₱${o['total_amount']}',
-                        style: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white)),
+                  if ((o['shipping_fee'] ?? 0) > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Subtotal',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 13)),
+                        Text('₱${o['subtotal'] ?? o['total_amount']}',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Shipping Fee',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 13)),
+                        Text('₱${o['shipping_fee']}',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 13)),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                  ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('TOTAL',
+                          style: GoogleFonts.inter(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.w600)),
+                      ShaderMask(
+                        shaderCallback: (b) => goldGradient.createShader(b),
+                        child: Text('₱${o['total_amount']}',
+                            style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -594,3 +665,109 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
+
+// ── Person Card (buyer / seller info) ─────────────────────────────────────────
+
+class _PersonCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String name;
+  final String username;
+  final String? phone;
+  const _PersonCard({
+    required this.icon, required this.label,
+    required this.name, required this.username, this.phone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(children: [
+        Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.gold.withAlpha(20),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.gold.withAlpha(80)),
+          ),
+          child: Icon(icon, color: AppColors.gold, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: GoogleFonts.inter(
+                    color: AppColors.textMuted,
+                    fontSize: 9,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(
+              name.isNotEmpty ? name : username,
+              style: GoogleFonts.inter(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13),
+            ),
+            if (name.isNotEmpty)
+              Text('@$username',
+                  style: GoogleFonts.inter(
+                      color: AppColors.textMuted, fontSize: 11)),
+            if (phone != null && phone!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('📞 $phone',
+                    style: GoogleFonts.inter(
+                        color: AppColors.textMuted, fontSize: 11)),
+              ),
+          ],
+        )),
+      ]),
+    );
+  }
+}
+
+// ── Chip ──────────────────────────────────────────────────────────────────────
+
+class _Chip extends StatelessWidget {
+  final String label;
+  const _Chip(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(label,
+          style: GoogleFonts.inter(
+              color: AppColors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ── Image placeholder ─────────────────────────────────────────────────────────
+
+Widget _imgPlaceholder() => Container(
+  width: 64, height: 64,
+  decoration: BoxDecoration(
+    color: AppColors.surfaceLight,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: AppColors.border),
+  ),
+  child: const Icon(Icons.image_not_supported_outlined,
+      color: AppColors.textMuted, size: 24),
+);

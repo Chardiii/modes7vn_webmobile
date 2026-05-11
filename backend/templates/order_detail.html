@@ -154,57 +154,129 @@
             <div class="card-body">
 
                 <h6 style="font-weight:700;margin-bottom:.75rem;">📍 Delivery Address</h6>
-                <p style="color:#374151;margin-bottom:1.25rem;">
+                <p style="color:#374151;margin-bottom:.25rem;">
                     {{ order.delivery_address }}<br>
-                    {{ order.delivery_city }}{% if order.delivery_zip %}, {{ order.delivery_zip }}{% endif %}
+                    {{ order.delivery_city }}{% if order.delivery_province %}, {{ order.delivery_province }}{% endif %}{% if order.delivery_zip %} {{ order.delivery_zip }}{% endif %}
                 </p>
+
+                {# Buyer info — shown to seller & rider #}
+                {% if current_user.is_seller() or current_user.is_rider() or current_user.is_admin() %}
+                {% set buyer = order.buyer %}
+                {% if buyer %}
+                <div style="margin-top:.75rem;background:#f9fafb;border:1px solid #e5e7eb;
+                            border-radius:10px;padding:.75rem 1rem;display:flex;gap:.75rem;align-items:center;">
+                    <span style="font-size:1.4rem;">👤</span>
+                    <div>
+                        <div style="font-weight:700;font-size:.88rem;color:#111827;">
+                            {{ buyer.first_name or '' }} {{ buyer.last_name or '' }}
+                            <span style="font-weight:400;color:#6b7280;">({{ buyer.username }})</span>
+                        </div>
+                        {% if buyer.phone %}
+                        {% set p = buyer.phone.strip() %}
+                        {% set visible = [4, p|length]|min %}
+                        <div style="font-size:.82rem;color:#6b7280;margin-top:.15rem;">
+                            📞 {{ '*' * (p|length - visible) }}{{ p[-visible:] }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+
+                {# Seller info — shown to buyer & rider #}
+                {% if current_user.is_buyer() or current_user.is_rider() or current_user.is_admin() %}
+                {% set seller = order.seller_user %}
+                {% if seller %}
+                <div style="margin-top:.6rem;background:#f9fafb;border:1px solid #e5e7eb;
+                            border-radius:10px;padding:.75rem 1rem;display:flex;gap:.75rem;align-items:center;">
+                    <span style="font-size:1.4rem;">🏪</span>
+                    <div>
+                        <div style="font-weight:700;font-size:.88rem;color:#111827;">
+                            {{ seller.shop_name or ((seller.first_name or '') + ' ' + (seller.last_name or '')) }}
+                            <span style="font-weight:400;color:#6b7280;">({{ seller.username }})</span>
+                        </div>
+                        {% if seller.phone %}
+                        {% set p = seller.phone.strip() %}
+                        {% set visible = [4, p|length]|min %}
+                        <div style="font-size:.82rem;color:#6b7280;margin-top:.15rem;">
+                            📞 {{ '*' * (p|length - visible) }}{{ p[-visible:] }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
 
                 <hr>
                 <h6 style="font-weight:700;margin-bottom:.75rem;">🛍️ Items</h6>
-                <table class="table table-sm">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Product</th>
-                            <th class="text-center">Qty</th>
-                            <th class="text-end">Price</th>
-                            <th class="text-end">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in order.items %}
-                        <tr>
-                            <td>
-                                <div style="font-weight:600;">{{ item.product.name }}</div>
-                                {% if item.variant_size or item.variant_color %}
-                                <div style="display:flex;gap:.3rem;margin-top:.25rem;flex-wrap:wrap;">
-                                    {% if item.variant_size %}
-                                    <span style="background:#f3f4f6;color:#374151;font-size:.7rem;
-                                                 font-weight:600;padding:.15rem .5rem;border-radius:999px;">
-                                        {{ item.variant_size }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.variant_color %}
-                                    <span style="background:#f3f4f6;color:#374151;font-size:.7rem;
-                                                 font-weight:600;padding:.15rem .5rem;border-radius:999px;">
-                                        {{ item.variant_color }}
-                                    </span>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">{{ item.quantity }}</td>
-                            <td class="text-end">₱{{ "%.2f"|format(item.price) }}</td>
-                            <td class="text-end">₱{{ "%.2f"|format(item.subtotal) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot class="table-light">
-                        <tr>
-                            <td colspan="3" class="fw-bold">Total</td>
-                            <td class="text-end fw-bold">₱{{ "%.2f"|format(order.total_amount) }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
+                {% for item in order.items %}
+                {% set primary_img = item.product.images.filter_by(is_primary=True).first() or item.product.images.first() if item.product else None %}
+                <div style="display:flex;gap:1rem;align-items:flex-start;
+                            padding:.85rem 0;border-bottom:1px solid #f3f4f6;">
+                    {# Product image #}
+                    <div style="width:72px;height:72px;flex-shrink:0;border-radius:10px;
+                                overflow:hidden;border:1px solid #e5e7eb;background:#f9fafb;">
+                        {% if primary_img %}
+                        <img src="{{ url_for('static', filename='uploads/' + primary_img.image_url) }}"
+                             style="width:100%;height:100%;object-fit:cover;" alt="">
+                        {% else %}
+                        <div style="width:100%;height:100%;display:flex;align-items:center;
+                                    justify-content:center;color:#d1d5db;font-size:1.5rem;">📦</div>
+                        {% endif %}
+                    </div>
+                    {# Product info #}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:.9rem;color:#111827;
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            {{ item.product.name if item.product else 'Product' }}
+                        </div>
+                        {% if item.variant_size or item.variant_color %}
+                        <div style="display:flex;gap:.3rem;margin-top:.3rem;flex-wrap:wrap;">
+                            {% if item.variant_size %}
+                            <span style="background:#f3f4f6;color:#374151;font-size:.7rem;
+                                         font-weight:600;padding:.15rem .5rem;border-radius:999px;">
+                                {{ item.variant_size }}
+                            </span>
+                            {% endif %}
+                            {% if item.variant_color %}
+                            <span style="background:#f3f4f6;color:#374151;font-size:.7rem;
+                                         font-weight:600;padding:.15rem .5rem;border-radius:999px;">
+                                {{ item.variant_color }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        <div style="font-size:.8rem;color:#6b7280;margin-top:.3rem;">
+                            ₱{{ "%.2f"|format(item.price) }} &times; {{ item.quantity }}
+                        </div>
+                    </div>
+                    {# Subtotal #}
+                    <div style="font-weight:700;font-size:.95rem;color:#111827;white-space:nowrap;">
+                        ₱{{ "%.2f"|format(item.subtotal) }}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {# Totals breakdown #}
+                <div style="margin-top:.75rem;">
+                    {% set subtotal = order.total_amount - (order.shipping_fee or 0) %}
+                    <div style="display:flex;justify-content:space-between;
+                                font-size:.85rem;color:#6b7280;padding:.3rem 0;">
+                        <span>Subtotal</span>
+                        <span>₱{{ "%.2f"|format(subtotal) }}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;
+                                font-size:.85rem;color:#6b7280;padding:.3rem 0;">
+                        <span>Shipping Fee</span>
+                        <span>₱{{ "%.2f"|format(order.shipping_fee or 0) }}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;
+                                font-size:1rem;font-weight:800;color:#111827;
+                                padding:.5rem 0;border-top:2px solid #e5e7eb;margin-top:.25rem;">
+                        <span>Total</span>
+                        <span>₱{{ "%.2f"|format(order.total_amount) }}</span>
+                    </div>
+                </div>
 
                 <hr>
                 <h6 style="font-weight:700;margin-bottom:.5rem;">💵 Payment</h6>
