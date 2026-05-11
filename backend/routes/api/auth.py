@@ -75,7 +75,12 @@ def api_google_login():
 
 @api_bp.route('/auth/register', methods=['POST'])
 def api_register():
-    data = request.get_json(silent=True) or {}
+    import os
+    from werkzeug.utils import secure_filename
+    from flask import current_app
+
+    # Support multipart/form-data for file uploads
+    data       = request.form
     username   = data.get('username', '').strip()
     email      = data.get('email', '').strip().lower()
     password   = data.get('password', '')
@@ -84,11 +89,9 @@ def api_register():
     phone      = data.get('phone', '').strip()
     role       = data.get('role', UserRole.BUYER.value).strip()
 
-    # Validate role
     valid_roles = [UserRole.BUYER.value, UserRole.SELLER.value, UserRole.RIDER.value]
     if role not in valid_roles:
         return jsonify({'error': 'Invalid role'}), 400
-
     if not username or not email or not password:
         return jsonify({'error': 'Username, email and password are required'}), 400
     if len(password) < 8:
@@ -98,15 +101,47 @@ def api_register():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already registered'}), 409
 
-    # Seller-specific validation
+    ALLOWED = {'png', 'jpg', 'jpeg', 'pdf', 'webp'}
+
+    def _save(file, subfolder='docs'):
+        ext = file.filename.rsplit('.', 1)[-1].lower()
+        fname = f"{uuid.uuid4().hex}.{ext}"
+        folder = os.path.join(current_app.config['UPLOAD_FOLDER'], subfolder)
+        os.makedirs(folder, exist_ok=True)
+        file.save(os.path.join(folder, fname))
+        return f"{subfolder}/{fname}"
+
+    def _allowed(file):
+        return file and file.filename and \
+               file.filename.rsplit('.', 1)[-1].lower() in ALLOWED
+
+    # Valid ID — required for all roles
+    valid_id_file = request.files.get('valid_id')
+    if not _allowed(valid_id_file):
+        return jsonify({'error': 'A valid ID (JPG, PNG, WEBP, or PDF) is required'}), 400
+
+    # Seller validation
     if role == UserRole.SELLER.value:
         if not data.get('shop_name', '').strip():
             return jsonify({'error': 'Shop name is required for sellers'}), 400
+        bp_file = request.files.get('business_permit')
+        if not _allowed(bp_file):
+            return jsonify({'error': 'Business permit (JPG, PNG, WEBP, or PDF) is required for sellers'}), 400
 
-    # Rider-specific validation
+    # Rider validation
     if role == UserRole.RIDER.value:
         if not data.get('plate_number', '').strip():
             return jsonify({'error': 'Plate number is required for riders'}), 400
+        dl_file = request.files.get('drivers_license')
+        if not _allowed(dl_file):
+            return jsonify({'error': "Driver's license (JPG, PNG, WEBP, or PDF) is required for riders"}), 400
+
+    # Save files
+    valid_id_path = _save(valid_id_file)
+    business_permit_path = _save(request.files.get('business_permit')) \
+        if role == UserRole.SELLER.value else None
+    drivers_license_path = _save(request.files.get('drivers_license')) \
+        if role == UserRole.RIDER.value else None
 
     verify_token = uuid.uuid4().hex
     user = User(
@@ -116,16 +151,19 @@ def api_register():
         is_active=False, is_verified=False,
         email_verified=False,
         email_verify_token=verify_token,
+        valid_id=valid_id_path,
     )
     user.set_password(password)
 
     if role == UserRole.SELLER.value:
         user.shop_name        = data.get('shop_name', '').strip()
         user.shop_description = data.get('shop_description', '').strip()
+        user.business_permit  = business_permit_path
 
     if role == UserRole.RIDER.value:
-        user.vehicle_type = data.get('vehicle_type', '').strip()
-        user.plate_number = data.get('plate_number', '').strip()
+        user.vehicle_type    = data.get('vehicle_type', '').strip()
+        user.plate_number    = data.get('plate_number', '').strip()
+        user.drivers_license = drivers_license_path
 
     db.session.add(user)
     db.session.commit()

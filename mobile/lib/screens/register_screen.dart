@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../services/api_service.dart';
 import '../theme.dart';
 
@@ -29,25 +31,149 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
 
+  File? _validIdFile;
+  File? _businessPermitFile;
+  File? _driversLicenseFile;
+
+  final _picker = ImagePicker();
   final _vehicleTypes = ['Motorcycle', 'Bicycle', 'Car', 'Van'];
+
+  Future<void> _pickFile(String type) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.gold),
+              title: Text('Take Photo', style: GoogleFonts.inter(color: AppColors.textPrimary)),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.gold),
+              title: Text('Choose from Gallery', style: GoogleFonts.inter(color: AppColors.textPrimary)),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null) return;
+    setState(() {
+      final file = File(picked.path);
+      if (type == 'valid_id') _validIdFile = file;
+      if (type == 'business_permit') _businessPermitFile = file;
+      if (type == 'drivers_license') _driversLicenseFile = file;
+    });
+  }
+
+  Widget _filePicker(String label, File? file, String type, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label + (required ? ' *' : ''),
+              style: GoogleFonts.inter(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _pickFile(type),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: file != null ? AppColors.gold : AppColors.border,
+                    width: file != null ? 1.5 : 1),
+              ),
+              child: file != null
+                  ? Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(file, width: 56, height: 56, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(file.path.split('/').last,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textPrimary, fontSize: 12)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.textMuted, size: 18),
+                          onPressed: () => setState(() {
+                            if (type == 'valid_id') _validIdFile = null;
+                            if (type == 'business_permit') _businessPermitFile = null;
+                            if (type == 'drivers_license') _driversLicenseFile = null;
+                          }),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        const Icon(Icons.upload_file_outlined, color: AppColors.gold, size: 22),
+                        const SizedBox(width: 10),
+                        Text('Tap to upload photo',
+                            style: GoogleFonts.inter(
+                                color: AppColors.textMuted, fontSize: 13)),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_validIdFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please upload a valid ID')));
+      return;
+    }
+    if (_role == 'seller' && _businessPermitFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please upload your business permit')));
+      return;
+    }
+    if (_role == 'rider' && _driversLicenseFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please upload your driver's license")));
+      return;
+    }
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _loading = true);
     try {
       await _api.register(
-        username:        _usernameCtrl.text.trim(),
-        email:           _emailCtrl.text.trim(),
-        password:        _passwordCtrl.text,
-        role:            _role,
-        firstName:       _firstNameCtrl.text.trim(),
-        lastName:        _lastNameCtrl.text.trim(),
-        phone:           _phoneCtrl.text.trim(),
-        shopName:        _shopNameCtrl.text.trim(),
-        shopDescription: _shopDescCtrl.text.trim(),
-        vehicleType:     _vehicleType,
-        plateNumber:     _plateCtrl.text.trim(),
+        username:            _usernameCtrl.text.trim(),
+        email:               _emailCtrl.text.trim(),
+        password:            _passwordCtrl.text,
+        role:                _role,
+        firstName:           _firstNameCtrl.text.trim(),
+        lastName:            _lastNameCtrl.text.trim(),
+        phone:               _phoneCtrl.text.trim(),
+        shopName:            _shopNameCtrl.text.trim(),
+        shopDescription:     _shopDescCtrl.text.trim(),
+        vehicleType:         _vehicleType,
+        plateNumber:         _plateCtrl.text.trim(),
+        validIdPath:         _validIdFile?.path,
+        businessPermitPath:  _businessPermitFile?.path,
+        driversLicensePath:  _driversLicenseFile?.path,
       );
       if (!mounted) return;
       showDialog(
@@ -208,6 +334,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ? 'Passwords do not match'
                       : null),
 
+              // Valid ID — required for all roles
+              const Divider(),
+              const SizedBox(height: 8),
+              Text('IDENTITY VERIFICATION',
+                  style: GoogleFonts.inter(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              _filePicker('Valid ID', _validIdFile, 'valid_id', required: true),
+
               // Seller fields
               if (_role == 'seller') ...[
                 const Divider(),
@@ -225,6 +363,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         : null),
                 _field(_shopDescCtrl, 'Shop Description',
                     maxLines: 3),
+                _filePicker('Business Permit', _businessPermitFile, 'business_permit', required: true),
               ],
 
               // Rider fields
@@ -274,6 +413,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (v) => v == null || v.trim().isEmpty
                         ? 'Plate number is required'
                         : null),
+                _filePicker("Driver's License", _driversLicenseFile, 'drivers_license', required: true),
               ],
 
               const SizedBox(height: 8),

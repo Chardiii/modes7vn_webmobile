@@ -8,8 +8,14 @@ import '../theme.dart';
 class MessageThreadScreen extends StatefulWidget {
   final int partnerId;
   final String partnerUsername;
-  const MessageThreadScreen(
-      {super.key, required this.partnerId, required this.partnerUsername});
+  final int? orderId;
+  const MessageThreadScreen({
+    super.key,
+    required this.partnerId,
+    String? partnerUsername,
+    String? partnerName,
+    this.orderId,
+  }) : partnerUsername = partnerUsername ?? partnerName ?? 'User';
 
   @override
   State<MessageThreadScreen> createState() => _MessageThreadScreenState();
@@ -62,7 +68,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     if (body.isEmpty) return;
     setState(() => _sending = true);
     try {
-      final msg = await _api.sendMessage(widget.partnerId, body);
+      final msg = await _api.sendMessage(widget.partnerId, body, orderId: widget.orderId);
       if (!mounted) return;
       _msgCtrl.clear();
       setState(() => _messages.add(msg));

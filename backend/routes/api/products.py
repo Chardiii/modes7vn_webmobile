@@ -125,6 +125,11 @@ def api_get_seller_product(product_id):
          'is_primary': img.is_primary}
         for img in product.images.order_by(ProductImage.is_primary.desc()).all()
     ]
+    variants = [
+        {'id': v.id, 'size': v.size, 'color': v.color or '',
+         'stock': v.stock, 'price_adj': v.price_adj}
+        for v in product.variants.all()
+    ]
     return jsonify({
         'id': product.id,
         'name': product.name,
@@ -134,6 +139,7 @@ def api_get_seller_product(product_id):
         'category': product.category,
         'is_active': product.is_active,
         'images': images,
+        'variants': variants,
     })
 
 
@@ -148,7 +154,6 @@ def api_add_product():
     name        = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
     price       = request.form.get('price', type=float)
-    stock       = request.form.get('stock', 0, type=int)
     category    = request.form.get('category', '').strip()
 
     if not name or price is None or not category:
@@ -158,16 +163,35 @@ def api_add_product():
     if price <= 0:
         return jsonify({'error': 'Price must be greater than 0'}), 400
 
+    # Variants sent as variant_size[], variant_color[], variant_stock[], variant_price_adj[]
+    v_sizes     = request.form.getlist('variant_size[]')
+    v_colors    = request.form.getlist('variant_color[]')
+    v_stocks    = request.form.getlist('variant_stock[]')
+    v_price_adj = request.form.getlist('variant_price_adj[]')
+    has_variants = any(s.strip() for s in v_sizes)
+
+    total_stock = sum(int(s or 0) for s in v_stocks) if has_variants \
+        else request.form.get('stock', 0, type=int)
+
     product = Product(
-        seller_id=user_id,
-        name=name,
-        description=description,
-        price=price,
-        stock=stock,
-        category=category,
+        seller_id=user_id, name=name, description=description,
+        price=price, stock=total_stock, category=category,
     )
     db.session.add(product)
     db.session.flush()
+
+    if has_variants:
+        for i, size in enumerate(v_sizes):
+            if not size.strip():
+                continue
+            color     = (v_colors[i].strip() if i < len(v_colors) else '') or None
+            stock     = int(v_stocks[i]) if i < len(v_stocks) and v_stocks[i] else 0
+            price_adj = float(v_price_adj[i]) if i < len(v_price_adj) and v_price_adj[i] else 0.0
+            db.session.add(ProductVariant(
+                product_id=product.id,
+                size=size.strip(), color=color, stock=stock, price_adj=price_adj,
+                sku=f"{product.id}-{size.strip()}-{color or 'NA'}"
+            ))
 
     images = request.files.getlist('images')
     first = True
@@ -175,9 +199,7 @@ def api_add_product():
         if file and file.filename and _allowed(file.filename):
             filename = _save_image(file)
             db.session.add(ProductImage(
-                product_id=product.id,
-                image_url=filename,
-                is_primary=first,
+                product_id=product.id, image_url=filename, is_primary=first,
             ))
             first = False
 
@@ -204,7 +226,6 @@ def api_edit_product(product_id):
     name        = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
     price       = request.form.get('price', type=float)
-    stock       = request.form.get('stock', type=int)
     category    = request.form.get('category', '').strip()
 
     if not name or price is None or not category:
@@ -214,35 +235,71 @@ def api_edit_product(product_id):
     if price <= 0:
         return jsonify({'error': 'Price must be greater than 0'}), 400
 
-    product.name        = name
+    product.name = name
     product.description = description
-    product.price       = price
-    product.category    = category
-    if stock is not None and product.variants.count() == 0:
-        product.stock = stock
+    product.price = price
+    product.category = category
+
+    # Variants
+    v_ids       = request.form.getlist('variant_id[]')
+    v_sizes     = request.form.getlist('variant_size[]')
+    v_colors    = request.form.getlist('variant_color[]')
+    v_stocks    = request.form.getlist('variant_stock[]')
+    v_price_adj = request.form.getlist('variant_price_adj[]')
+    has_variants = any(s.strip() for s in v_sizes)
+
+    if has_variants:
+        submitted_ids = set()
+        for i, size in enumerate(v_sizes):
+            if not size.strip():
+                continue
+            vid       = int(v_ids[i]) if i < len(v_ids) and v_ids[i] else None
+            color     = (v_colors[i].strip() if i < len(v_colors) else '') or None
+            stock     = int(v_stocks[i]) if i < len(v_stocks) and v_stocks[i] else 0
+            price_adj = float(v_price_adj[i]) if i < len(v_price_adj) and v_price_adj[i] else 0.0
+            if vid:
+                v = ProductVariant.query.get(vid)
+                if v and v.product_id == product.id:
+                    v.size = size.strip(); v.color = color
+                    v.stock = stock; v.price_adj = price_adj
+                    submitted_ids.add(vid)
+            else:
+                nv = ProductVariant(
+                    product_id=product.id, size=size.strip(), color=color,
+                    stock=stock, price_adj=price_adj,
+                    sku=f"{product.id}-{size.strip()}-{color or 'NA'}"
+                )
+                db.session.add(nv)
+                db.session.flush()
+                submitted_ids.add(nv.id)
+        for ev in product.variants.all():
+            if ev.id not in submitted_ids:
+                db.session.delete(ev)
+        db.session.flush()
+        product.stock = sum(v.stock for v in product.variants.all())
+    else:
+        flat_stock = request.form.get('stock', type=int)
+        if flat_stock is not None:
+            product.stock = flat_stock
+        for v in product.variants.all():
+            db.session.delete(v)
 
     # Delete images marked for removal
-    remove_ids = request.form.getlist('remove_image_ids')
-    for img_id in remove_ids:
+    for img_id in request.form.getlist('remove_image_ids'):
         img = ProductImage.query.get(int(img_id))
         if img and img.product_id == product.id:
             path = os.path.join(current_app.config['UPLOAD_FOLDER'], img.image_url)
             if os.path.exists(path):
                 os.remove(path)
             db.session.delete(img)
-
     db.session.flush()
 
-    # Add new images
-    new_images = request.files.getlist('images')
     has_primary = product.images.filter_by(is_primary=True).first() is not None
-    for file in new_images:
+    for file in request.files.getlist('images'):
         if file and file.filename and _allowed(file.filename):
             filename = _save_image(file)
             db.session.add(ProductImage(
-                product_id=product.id,
-                image_url=filename,
-                is_primary=not has_primary,
+                product_id=product.id, image_url=filename, is_primary=not has_primary,
             ))
             has_primary = True
 

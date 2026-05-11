@@ -250,6 +250,10 @@
                             onclick="return confirm('Confirm delivery and cash collected?')">✅ Mark as Delivered</button>
                     </form>
                     {% endif %}
+                    <a href="{{ url_for('messages.thread', partner_id=order.buyer_id, order_id=order.id) }}"
+                       class="btn btn-outline-secondary w-100">💬 Message Buyer</a>
+                    <a href="{{ url_for('messages.thread', partner_id=order.seller_id, order_id=order.id) }}"
+                       class="btn btn-outline-secondary w-100">💬 Message Seller</a>
                 {% endif %}
 
                 {# Buyer #}
@@ -353,8 +357,8 @@
                 </form>
                 {% endif %}
 
-                <a href="{{ url_for('orders.my_orders') if current_user.is_buyer() else url_for('orders.seller_received_orders') }}"
-                   class="btn btn-outline-secondary">← Back to Orders</a>
+                <a href="{{ url_for('orders.my_orders') if current_user.is_buyer() else (url_for('messages.inbox') if current_user.is_rider() else url_for('orders.seller_received_orders')) }}"
+                   class="btn btn-outline-secondary">← Back</a>
 
             </div>
         </div>

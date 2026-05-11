@@ -8,6 +8,8 @@ import '../services/auth_provider.dart';
 import '../theme.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'messages_screen.dart';
+import 'message_thread_screen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -21,12 +23,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
   final _api = ApiService();
   Map<String, dynamic>? _data;
   bool _loading = true;
+  int _unreadCount = 0;
   late TabController _tabs;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
     _load();
   }
 
@@ -40,8 +43,12 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     setState(() => _loading = true);
     try {
       final data = await _api.getRiderOrders();
+      final unread = await _api.getUnreadCount();
       if (!mounted) return;
-      setState(() => _data = data);
+      setState(() {
+        _data = data;
+        _unreadCount = unread;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -271,6 +278,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
             Tab(text: 'Available (${available.length})'),
             Tab(text: 'Active (${active.length})'),
             Tab(text: 'History'),
+            Tab(
+              icon: Badge(
+                isLabelVisible: (_unreadCount > 0),
+                label: Text('$_unreadCount'),
+                child: const Icon(Icons.chat_bubble_outline, size: 18),
+              ),
+            ),
           ],
         ),
       ),
@@ -299,6 +313,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                   ),
                   // ── History tab ────────────────────────────────────────
                   _HistoryTab(delivered: delivered, stats: stats),
+                  // ── Messages tab ───────────────────────────────────────
+                  const MessagesScreen(embedded: true),
                 ],
               ),
             ),
@@ -699,6 +715,62 @@ class _ActiveOrderCard extends StatelessWidget {
                     style: GoogleFonts.inter(
                         color: AppColors.textMuted, fontSize: 11)),
                 const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MessageThreadScreen(
+                              partnerId: o['buyer_id'],
+                              partnerName: o['buyer'] ?? 'Buyer',
+                              orderId: o['id'],
+                            ),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textMuted,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(40)),
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                        label: Text('Buyer',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MessageThreadScreen(
+                              partnerId: o['seller_id'],
+                              partnerName: o['seller'] ?? 'Seller',
+                              orderId: o['id'],
+                            ),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textMuted,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(40)),
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                        label: Text('Seller',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   child: isAssigned

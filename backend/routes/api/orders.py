@@ -21,7 +21,9 @@ def _order_dict(o):
         'created_at': o.created_at.isoformat(),
         'delivered_at': o.delivered_at.isoformat() if o.delivered_at else None,
         'buyer': o.buyer.username if o.buyer else None,
+        'buyer_id': o.buyer_id,
         'seller': o.seller_user.username if o.seller_user else None,
+        'seller_id': o.seller_id,
         'rider': o.rider.username if o.rider else None,
         'payment': {
             'method': o.payment.method,

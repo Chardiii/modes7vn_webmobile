@@ -65,16 +65,35 @@ class ApiService {
     String shopDescription = '',
     String vehicleType = '',
     String plateNumber = '',
+    String? validIdPath,
+    String? businessPermitPath,
+    String? driversLicensePath,
   }) async {
-    final res = await _dio.post('/auth/register', data: {
-      'username': username, 'email': email, 'password': password,
+    final formData = FormData.fromMap({
+      'username': username,
+      'email': email,
+      'password': password,
       'role': role,
-      'first_name': firstName, 'last_name': lastName, 'phone': phone,
+      'first_name': firstName,
+      'last_name': lastName,
+      'phone': phone,
       if (shopName.isNotEmpty) 'shop_name': shopName,
       if (shopDescription.isNotEmpty) 'shop_description': shopDescription,
       if (vehicleType.isNotEmpty) 'vehicle_type': vehicleType,
       if (plateNumber.isNotEmpty) 'plate_number': plateNumber,
+      if (validIdPath != null)
+        'valid_id': await MultipartFile.fromFile(validIdPath,
+            filename: validIdPath.split('/').last),
+      if (businessPermitPath != null)
+        'business_permit': await MultipartFile.fromFile(businessPermitPath,
+            filename: businessPermitPath.split('/').last),
+      if (driversLicensePath != null)
+        'drivers_license': await MultipartFile.fromFile(driversLicensePath,
+            filename: driversLicensePath.split('/').last),
     });
+    final res = await _dio.post('/auth/register',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'));
     return res.data;
   }
 
@@ -286,17 +305,23 @@ class ApiService {
     String description = '',
     int stock = 0,
     List<String> imagePaths = const [],
+    List<Map<String, dynamic>> variants = const [],
   }) async {
     final formData = FormData.fromMap({
       'name': name,
       'price': price.toString(),
       'category': category,
       'description': description,
-      'stock': stock.toString(),
+      if (variants.isEmpty) 'stock': stock.toString(),
+      for (int i = 0; i < variants.length; i++) ...{
+        'variant_size[]': variants[i]['size'] ?? '',
+        'variant_color[]': variants[i]['color'] ?? '',
+        'variant_stock[]': (variants[i]['stock'] ?? 0).toString(),
+        'variant_price_adj[]': (variants[i]['price_adj'] ?? 0).toString(),
+      },
       'images': [
         for (final path in imagePaths)
-          await MultipartFile.fromFile(path,
-              filename: path.split('/').last)
+          await MultipartFile.fromFile(path, filename: path.split('/').last)
       ],
     });
     final res = await _dio.post('/seller/products/add',
@@ -319,18 +344,25 @@ class ApiService {
     int stock = 0,
     List<String> newImagePaths = const [],
     List<int> removeImageIds = const [],
+    List<Map<String, dynamic>> variants = const [],
   }) async {
     final formData = FormData.fromMap({
       'name': name,
       'price': price.toString(),
       'category': category,
       'description': description,
-      'stock': stock.toString(),
+      if (variants.isEmpty) 'stock': stock.toString(),
       'remove_image_ids': removeImageIds.map((id) => id.toString()).toList(),
+      for (int i = 0; i < variants.length; i++) ...{
+        'variant_id[]': (variants[i]['id'] ?? '').toString(),
+        'variant_size[]': variants[i]['size'] ?? '',
+        'variant_color[]': variants[i]['color'] ?? '',
+        'variant_stock[]': (variants[i]['stock'] ?? 0).toString(),
+        'variant_price_adj[]': (variants[i]['price_adj'] ?? 0).toString(),
+      },
       'images': [
         for (final path in newImagePaths)
-          await MultipartFile.fromFile(path,
-              filename: path.split('/').last)
+          await MultipartFile.fromFile(path, filename: path.split('/').last)
       ],
     });
     final res = await _dio.post('/seller/products/$productId/edit',

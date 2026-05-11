@@ -5,7 +5,8 @@ import '../theme.dart';
 import 'message_thread_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  final bool embedded;
+  const MessagesScreen({super.key, this.embedded = false});
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
@@ -40,7 +41,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Messages')),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.gold))
