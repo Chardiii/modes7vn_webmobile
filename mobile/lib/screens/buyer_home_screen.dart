@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_provider.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 import 'products_screen.dart';
 import 'cart_screen.dart';
@@ -9,6 +10,7 @@ import 'orders_screen.dart';
 import 'wishlist_screen.dart';
 import 'profile_screen.dart';
 import 'messages_screen.dart';
+import 'notifications_screen.dart';
 import 'login_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
@@ -19,11 +21,26 @@ class BuyerHomeScreen extends StatefulWidget {
 }
 
 class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
+  final _api = ApiService();
   int _currentIndex = 0;
+  int _notifCount = 0;
   // Track which tabs have been visited so we only rebuild when needed
   final Set<int> _visited = {0};
 
   final _titles = ['MODE S7VN', 'Cart', 'My Orders', 'Wishlist', 'Profile'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifCount();
+  }
+
+  Future<void> _loadNotifCount() async {
+    try {
+      final count = await _api.getNotifUnreadCount();
+      if (mounted) setState(() => _notifCount = count);
+    } catch (_) {}
+  }
 
   Future<void> _logout() async {
     final nav = Navigator.of(context);
@@ -71,6 +88,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                 icon: const Icon(Icons.chat_bubble_outline),
                 onPressed: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const MessagesScreen()))),
+          Badge(
+            isLabelVisible: _notifCount > 0,
+            label: Text('$_notifCount'),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () async {
+                await Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen()));
+                _loadNotifCount();
+              },
+            ),
+          ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),

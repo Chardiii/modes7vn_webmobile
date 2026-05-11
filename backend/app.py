@@ -1,14 +1,11 @@
 from flask import Flask
 from flask_login import LoginManager
-from flask_mail import Mail
-from extensions import limiter, oauth, csrf, cors, jwt
+from extensions import limiter, oauth, csrf, cors, jwt, mail
 from config import config
 from models import db, User
-from routes import auth_bp, main_bp, products_bp, orders_bp, admin_bp, wishlist_bp, messages_bp, payments_bp
+from routes import auth_bp, main_bp, products_bp, orders_bp, admin_bp, wishlist_bp, messages_bp, payments_bp, notifications_bp
 from routes.api import api_bp
 import os
-
-mail = Mail()
 
 def create_app(config_name='development'):
     app = Flask(__name__)
@@ -50,6 +47,7 @@ def create_app(config_name='development'):
     app.register_blueprint(wishlist_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(payments_bp)
+    app.register_blueprint(notifications_bp)
     app.register_blueprint(api_bp)          # mobile JSON API
 
     with app.app_context():

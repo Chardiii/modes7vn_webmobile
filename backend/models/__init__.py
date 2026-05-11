@@ -12,11 +12,12 @@ from .review import Review
 from .wishlist import Wishlist
 from .message import Message
 from .cart import CartItem
+from .notification import Notification
 
 __all__ = [
     'db', 'User', 'UserRole',
     'Product', 'ProductImage', 'ProductVariant',
     'Order', 'OrderItem', 'OrderStatus',
     'Payment', 'PaymentStatus',
-    'Review', 'Wishlist', 'Message', 'CartItem',
+    'Review', 'Wishlist', 'Message', 'CartItem', 'Notification',
 ]

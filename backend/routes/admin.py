@@ -136,7 +136,7 @@ def edit_user(user_id):
     # Send approval / rejection email only when the status actually changes
     try:
         from flask_mail import Message as MailMsg
-        from app import mail
+        from extensions import mail
         if not was_active and user.is_active:
             html = rt('email/account_approved.html',
                       username=user.username, role=user.role,
@@ -144,6 +144,9 @@ def edit_user(user_id):
             msg = MailMsg('Mode S7vn — Your Account Has Been Approved',
                           recipients=[user.email], html=html)
             mail.send(msg)
+            from notifications import notify_account_approved
+            notify_account_approved(user)
+            db.session.commit()
         elif was_active and not user.is_active:
             reason = request.form.get('rejection_reason', '').strip()
             html = rt('email/account_rejected.html',
@@ -151,6 +154,9 @@ def edit_user(user_id):
             msg = MailMsg('Mode S7vn — Account Status Update',
                           recipients=[user.email], html=html)
             mail.send(msg)
+            from notifications import notify_account_rejected
+            notify_account_rejected(user, reason)
+            db.session.commit()
     except Exception as e:
         current_app.logger.warning(f'Account status email failed: {e}')
 
@@ -257,7 +263,7 @@ def admin_reset_password(user_id):
     # Try to send email
     try:
         from flask_mail import Message
-        from app import mail
+        from extensions import mail
         from flask import render_template as rt
         msg = Message('Mode S7vn — Password Reset (Admin)',
                       recipients=[user.email],

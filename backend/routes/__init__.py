@@ -6,6 +6,8 @@ from .admin import admin_bp
 from .wishlist import wishlist_bp
 from .messages import messages_bp
 from .payments import payments_bp
+from .notifications import notifications_bp
 from .api import api_bp
 
-__all__ = ['auth_bp', 'main_bp', 'products_bp', 'orders_bp', 'admin_bp', 'wishlist_bp', 'messages_bp', 'payments_bp', 'api_bp']
+__all__ = ['auth_bp', 'main_bp', 'products_bp', 'orders_bp', 'admin_bp',
+           'wishlist_bp', 'messages_bp', 'payments_bp', 'notifications_bp', 'api_bp']

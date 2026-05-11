@@ -284,6 +284,10 @@ def api_checkout():
             variant_id=item.variant_id
         ).delete()
     db.session.commit()
+    from notifications import notify_order_placed
+    for o in orders:
+        notify_order_placed(o)
+    db.session.commit()
     return jsonify({
         'message': f'{len(orders)} order(s) placed successfully',
         'orders': [_order_dict(o) for o in orders],
@@ -415,6 +419,9 @@ def api_verify_order(order_id):
             item.product.stock -= item.quantity
 
     order.status = OrderStatus.VERIFIED.value
+    db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
     db.session.commit()
     return jsonify({'message': 'Order verified', 'order': _order_dict(order)})
 
@@ -552,6 +559,9 @@ def api_claim_order(order_id):
     order.rider_id = user_id
     order.status = OrderStatus.ASSIGNED.value
     db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
+    db.session.commit()
     return jsonify({'message': 'Order claimed!', 'order': _order_dict(order)})
 
 
@@ -568,6 +578,9 @@ def api_pickup_order(order_id):
     if order.status != OrderStatus.ASSIGNED.value:
         return jsonify({'error': 'Order must be assigned before pickup'}), 400
     order.status = OrderStatus.SHIPPED.value
+    db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
     db.session.commit()
     return jsonify({'message': 'Marked as picked up', 'order': _order_dict(order)})
 
@@ -609,5 +622,8 @@ def api_deliver_order(order_id):
     order.delivered_at = datetime.utcnow()
     if order.payment:
         order.payment.status = 'collected'
+    db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
     db.session.commit()
     return jsonify({'message': 'Marked as delivered', 'order': _order_dict(order)})

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;background:#f5f5f0;padding:30px;margin:0;">
+<div style="max-width:520px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e0ddd5;">
+
+    <div style="background:#0d0d0d;padding:24px 32px;">
+        <h1 style="color:#c8a96e;margin:0;letter-spacing:3px;font-size:1.4rem;">MODE S7VN</h1>
+    </div>
+
+    <div style="padding:32px;">
+        <h2 style="margin-top:0;color:#111827;">{{ heading }}</h2>
+        <p style="color:#374151;">Hi <strong>{{ username }}</strong>,</p>
+
+        {% set status_map = {
+            'placed':           ('#fef3c7', '#92400e', '🛒', 'Order Placed'),
+            'verified':         ('#dbeafe', '#1e40af', '✅', 'Order Verified'),
+            'assigned':         ('#cffafe', '#155e75', '🏍️', 'Rider Assigned'),
+            'shipped':          ('#f3f4f6', '#374151', '📦', 'Out for Delivery'),
+            'delivered':        ('#d1fae5', '#065f46', '🎉', 'Delivered'),
+            'cancelled':        ('#fee2e2', '#991b1b', '✕',  'Cancelled'),
+            'cancel_requested': ('#fef3c7', '#92400e', '⚠️', 'Cancel Requested'),
+            'cancel_approved':  ('#d1fae5', '#065f46', '✓',  'Cancellation Approved'),
+            'cancel_rejected':  ('#fee2e2', '#991b1b', '✕',  'Cancellation Rejected'),
+        } %}
+        {% set bg, tc, icon, label = status_map.get(event, ('#f3f4f6', '#374151', '🔔', event|upper)) %}
+
+        <div style="background:{{ bg }};border-radius:8px;padding:18px 24px;margin:20px 0;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:6px;">{{ icon }}</div>
+            <div style="font-size:1rem;font-weight:700;color:{{ tc }};">{{ label }}</div>
+        </div>
+
+        <p style="color:#555;font-size:14px;">{{ message }}</p>
+
+        <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:.88rem;">
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:8px 0;color:#6b7280;">Order</td>
+                <td style="padding:8px 0;font-weight:600;text-align:right;">{{ order_number }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:8px 0;color:#6b7280;">Total</td>
+                <td style="padding:8px 0;font-weight:600;text-align:right;">₱{{ "%.2f"|format(total) }}</td>
+            </tr>
+            {% if extra_label and extra_value %}
+            <tr>
+                <td style="padding:8px 0;color:#6b7280;">{{ extra_label }}</td>
+                <td style="padding:8px 0;text-align:right;">{{ extra_value }}</td>
+            </tr>
+            {% endif %}
+        </table>
+
+        {% if action_url %}
+        <div style="text-align:center;margin:28px 0;">
+            <a href="{{ action_url }}"
+               style="background:#0d0d0d;color:#c8a96e;padding:14px 32px;border-radius:6px;
+                      text-decoration:none;font-weight:bold;letter-spacing:1px;font-size:14px;">
+                {{ action_label or 'View Order' }}
+            </a>
+        </div>
+        {% endif %}
+
+        <p style="color:#aaa;font-size:12px;margin-top:24px;">
+            You're receiving this because you have an account on Mode S7vn.
+        </p>
+    </div>
+
+    <div style="background:#f5f5f0;padding:16px 32px;text-align:center;">
+        <p style="color:#aaa;font-size:.8rem;margin:0;">&copy; 2026 Mode S7vn. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

@@ -85,7 +85,7 @@ def contact():
 
         try:
             from flask_mail import Message as MailMsg
-            from app import mail
+            from extensions import mail
             msg = MailMsg(
                 subject=f'[Contact] {subject or "New message"} — from {name}',
                 recipients=['support@modes7vn.com'],

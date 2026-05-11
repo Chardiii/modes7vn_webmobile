@@ -95,6 +95,9 @@ def api_send_message(partner_id):
     )
     db.session.add(msg)
     db.session.commit()
+    from notifications import notify_new_message
+    notify_new_message(msg)
+    db.session.commit()
     return jsonify(_msg_dict(msg)), 201
 
 

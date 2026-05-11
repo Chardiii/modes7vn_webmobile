@@ -69,6 +69,9 @@ def thread(partner_id):
         )
         db.session.add(msg)
         db.session.commit()
+        from notifications import notify_new_message
+        notify_new_message(msg)
+        db.session.commit()
         return redirect(url_for('messages.thread', partner_id=partner_id,
                                 product_id=product_id, order_id=order_id) + '#bottom')
 

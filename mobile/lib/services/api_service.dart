@@ -391,6 +391,27 @@ class ApiService {
     return res.data;
   }
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getNotifications({int page = 1}) async {
+    final res = await _dio.get('/notifications',
+        queryParameters: {'page': page});
+    return res.data;
+  }
+
+  Future<int> getNotifUnreadCount() async {
+    final res = await _dio.get('/notifications/unread-count');
+    return res.data['count'] ?? 0;
+  }
+
+  Future<void> markNotificationRead(int id) async {
+    await _dio.post('/notifications/read/$id');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _dio.post('/notifications/read-all');
+  }
+
   // ── Rider ─────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getRiderOrders() async {

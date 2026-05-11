@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/auth_provider.dart';
 import '../theme.dart';
 import 'login_screen.dart';
+import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'messages_screen.dart';
 import 'message_thread_screen.dart';
@@ -24,6 +25,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
   Map<String, dynamic>? _data;
   bool _loading = true;
   int _unreadCount = 0;
+  int _notifCount = 0;
   late TabController _tabs;
 
   @override
@@ -31,6 +33,14 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
     _load();
+    _loadNotifCount();
+  }
+
+  Future<void> _loadNotifCount() async {
+    try {
+      final count = await _api.getNotifUnreadCount();
+      if (mounted) setState(() => _notifCount = count);
+    } catch (_) {}
   }
 
   @override
@@ -252,6 +262,19 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                   color: Colors.white)),
         ),
         actions: [
+          Badge(
+            isLabelVisible: _notifCount > 0,
+            label: Text('$_notifCount'),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () async {
+                await Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen()));
+                _loadNotifCount();
+              },
+            ),
+          ),
           IconButton(
               icon: const Icon(Icons.person_outline),
               onPressed: () => Navigator.push(context,

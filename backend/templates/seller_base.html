@@ -465,6 +465,15 @@
                class="sel-nav-link {% if active_page == 'profile' %}active{% endif %}">
                 <span class="sel-nav-icon">👤</span> Shop Profile
             </a>
+            <a href="{{ url_for('notifications.inbox') }}"
+               class="sel-nav-link {% if active_page == 'notifications' %}active{% endif %}">
+                <span class="sel-nav-icon">🔔</span> Notifications
+                {% set unread_notifs = current_user.notifications.filter_by(is_read=False).count() %}
+                {% if unread_notifs %}
+                <span style="margin-left:auto;background:#ef4444;color:#fff;font-size:.6rem;
+                             font-weight:700;padding:.1rem .45rem;border-radius:999px;">{{ unread_notifs }}</span>
+                {% endif %}
+            </a>
             <a href="{{ url_for('main.index') }}" class="sel-nav-link">
                 <span class="sel-nav-icon">🌐</span> View Store
             </a>
@@ -513,7 +522,7 @@
                             <div class="sel-notif-empty">Loading…</div>
                         </div>
                         <div class="sel-notif-footer">
-                            <a href="{{ url_for('products.seller_orders') }}">View all orders →</a>
+                            <a href="{{ url_for('notifications.inbox') }}">View all notifications →</a>
                         </div>
                     </div>
                 </div>

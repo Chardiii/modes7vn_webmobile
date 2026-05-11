@@ -38,7 +38,7 @@ def send_email(to, subject, html_body):
     """Send email via Flask-Mail. Silently fails in dev if mail not configured."""
     try:
         from flask_mail import Message
-        from app import mail
+        from extensions import mail
         msg = Message(subject, recipients=[to], html=html_body)
         mail.send(msg)
     except Exception as e:

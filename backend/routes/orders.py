@@ -13,7 +13,7 @@ def send_order_status_email(order):
     """Fire-and-forget order status email to the buyer."""
     try:
         from flask_mail import Message as MailMessage
-        from app import mail
+        from extensions import mail
         from flask import current_app
         buyer = order.buyer
         if not buyer or not buyer.email:
@@ -464,6 +464,9 @@ def checkout():
             CartItem.query.filter_by(user_id=current_user.id).delete()
             db.session.commit()
 
+        from notifications import notify_order_placed
+        notify_order_placed(order)
+        db.session.commit()
         send_order_status_email(order)
         
         # Handle online payment
@@ -548,6 +551,9 @@ def verify_order(order_id):
 
     order.status = OrderStatus.VERIFIED.value
     db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
+    db.session.commit()
     send_order_status_email(order)
     flash(f'Order {order.order_number} verified! Riders can now claim it.', 'success')
     return redirect(url_for('products.seller_orders'))
@@ -582,6 +588,9 @@ def cancel_order(order_id):
         order.cancel_requested_by = 'buyer'
         order.cancel_status = 'pending'
         db.session.commit()
+        from notifications import notify_order_status
+        notify_order_status(order)
+        db.session.commit()
         flash(f'Cancellation request submitted. Waiting for seller approval.', 'info')
         return redirect(url_for('orders.order_detail', order_id=order_id))
 
@@ -594,6 +603,9 @@ def cancel_order(order_id):
         order.cancel_reason = reason
         order.cancel_requested_by = 'seller'
         order.cancel_status = 'approved'
+        db.session.commit()
+        from notifications import notify_order_status
+        notify_order_status(order)
         db.session.commit()
         send_order_status_email(order)
         flash(f'Order {order.order_number} cancelled. Stock restored.', 'info')
@@ -637,6 +649,9 @@ def approve_cancel(order_id):
     order.status = OrderStatus.CANCELLED.value
     order.cancel_status = 'approved'
     db.session.commit()
+    from notifications import notify_cancel_decision
+    notify_cancel_decision(order, approved=True)
+    db.session.commit()
     _send_cancel_decision_email(order, approved=True)
     flash(f'Cancellation approved. Stock restored for order {order.order_number}.', 'success')
     return redirect(url_for('products.seller_orders'))
@@ -664,6 +679,9 @@ def reject_cancel(order_id):
     order.status = OrderStatus.PENDING.value
     order.cancel_status = 'rejected'
     db.session.commit()
+    from notifications import notify_cancel_decision
+    notify_cancel_decision(order, approved=False)
+    db.session.commit()
     _send_cancel_decision_email(order, approved=False, rejection_reason=rejection_reason)
     flash(f'Cancellation request rejected for order {order.order_number}.', 'info')
     return redirect(url_for('products.seller_orders'))
@@ -673,7 +691,7 @@ def _send_cancel_decision_email(order, approved, rejection_reason=''):
     """Email the buyer when seller approves or rejects their cancel request."""
     try:
         from flask_mail import Message as MailMessage
-        from app import mail
+        from extensions import mail
         buyer = order.buyer
         if not buyer or not buyer.email:
             return
@@ -733,6 +751,9 @@ def claim_order(order_id):
     order.rider_id = current_user.id
     order.status = OrderStatus.ASSIGNED.value
     db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
+    db.session.commit()
     send_order_status_email(order)
     flash(f'You claimed order {order.order_number}!', 'success')
     return redirect(url_for('main.dashboard'))
@@ -757,6 +778,9 @@ def pickup_order(order_id):
         return redirect(url_for('main.dashboard'))
 
     order.status = OrderStatus.SHIPPED.value
+    db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
     db.session.commit()
     send_order_status_email(order)
     flash(f'Order {order.order_number} marked as picked up.', 'success')
@@ -806,6 +830,9 @@ def deliver_order(order_id):
     if order.payment:
         order.payment.status = 'collected'
 
+    db.session.commit()
+    from notifications import notify_order_status
+    notify_order_status(order)
     db.session.commit()
     send_order_status_email(order)
     flash(f'Order {order.order_number} delivered! Proof of delivery saved.', 'success')

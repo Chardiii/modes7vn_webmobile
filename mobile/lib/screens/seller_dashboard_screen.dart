@@ -7,6 +7,7 @@ import '../theme.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 import 'messages_screen.dart';
+import 'notifications_screen.dart';
 import 'seller_orders_screen.dart';
 import 'seller_products_screen.dart';
 
@@ -21,11 +22,20 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   final _api = ApiService();
   Map<String, dynamic>? _data;
   bool _loading = true;
+  int _notifCount = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadNotifCount();
+  }
+
+  Future<void> _loadNotifCount() async {
+    try {
+      final count = await _api.getNotifUnreadCount();
+      if (mounted) setState(() => _notifCount = count);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -72,6 +82,19 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                   color: Colors.white)),
         ),
         actions: [
+          Badge(
+            isLabelVisible: _notifCount > 0,
+            label: Text('$_notifCount'),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () async {
+                await Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen()));
+                _loadNotifCount();
+              },
+            ),
+          ),
           IconButton(
               icon: const Icon(Icons.chat_bubble_outline),
               onPressed: () => Navigator.push(context,
