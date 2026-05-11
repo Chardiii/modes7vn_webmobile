@@ -314,6 +314,10 @@
                class="rdr-nav-link {% if active_page == 'dashboard' %}active{% endif %}">
                 <span class="rdr-nav-icon">📦</span> My Deliveries
             </a>
+            <a href="{{ url_for('main.rider_map') }}"
+               class="rdr-nav-link {% if active_page == 'map' %}active{% endif %}">
+                <span class="rdr-nav-icon">🗺️</span> Delivery Map
+            </a>
 
             <div class="rdr-nav-section">Account</div>
             <a href="{{ url_for('auth.profile') }}"
@@ -392,6 +396,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
         document.querySelectorAll('.toast').forEach(el => new bootstrap.Toast(el, {delay:4000}).show())
         // Auto-inject CSRF token into POST forms

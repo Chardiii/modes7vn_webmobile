@@ -1,0 +1,269 @@
+{% extends "rider_base.html" %}
+{% set active_page = 'map' %}
+{% block title %}Delivery Map — Mode S7vn{% endblock %}
+{% block page_title %}Delivery Map{% endblock %}
+
+{% block content %}
+<style>
+    #rdr-map {
+        width: 100%;
+        height: calc(100vh - 140px);
+        min-height: 500px;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    /* Leaflet popup overrides */
+    .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.15);
+        padding: 0;
+        overflow: hidden;
+    }
+    .leaflet-popup-content { margin: 0; width: 260px !important; }
+    .leaflet-popup-tip-container { display: none; }
+
+    .map-popup {
+        font-family: 'Inter', sans-serif;
+        font-size: 13px;
+    }
+    .map-popup-header {
+        padding: .75rem 1rem .6rem;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .map-popup-order { font-weight: 800; color: #111827; font-size: .85rem; }
+    .map-popup-badge {
+        font-size: .65rem; font-weight: 700; padding: .2rem .55rem;
+        border-radius: 999px; letter-spacing: .3px;
+    }
+    .badge-available { background: #d1fae5; color: #065f46; }
+    .badge-assigned  { background: #dbeafe; color: #1e40af; }
+    .badge-shipped   { background: #fef3c7; color: #92400e; }
+    .map-popup-body  { padding: .7rem 1rem; }
+    .map-popup-row   { display: flex; gap: .5rem; margin-bottom: .4rem; font-size: .8rem; color: #374151; }
+    .map-popup-label { color: #9ca3af; flex-shrink: 0; width: 52px; }
+    .map-popup-actions { padding: .6rem 1rem .8rem; display: flex; gap: .5rem; }
+    .map-popup-btn {
+        flex: 1; padding: .45rem .5rem; border-radius: 7px; border: none;
+        font-size: .75rem; font-weight: 700; cursor: pointer; text-align: center;
+        text-decoration: none; display: inline-flex; align-items: center;
+        justify-content: center; gap: .3rem; transition: opacity .15s;
+    }
+    .map-popup-btn:hover { opacity: .85; }
+    .btn-nav    { background: #1d4ed8; color: #fff; }
+    .btn-detail { background: #f3f4f6; color: #374151; }
+
+    .map-legend {
+        display: flex; gap: 1rem; flex-wrap: wrap;
+        margin-bottom: .75rem; font-size: .78rem; color: #6b7280;
+    }
+    .map-legend-item { display: flex; align-items: center; gap: .4rem; }
+    .map-legend-dot  {
+        width: 12px; height: 12px; border-radius: 50%;
+        border: 2px solid rgba(0,0,0,.15);
+    }
+
+    .map-controls {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: .75rem; margin-bottom: .75rem;
+    }
+    .map-refresh-btn {
+        font-size: .78rem; font-weight: 600; padding: .4rem .9rem;
+        border-radius: 7px; border: 1px solid #e5e7eb;
+        background: #fff; color: #374151; cursor: pointer;
+        display: flex; align-items: center; gap: .4rem;
+        transition: background .15s;
+    }
+    .map-refresh-btn:hover { background: #f9fafb; }
+    .map-count { font-size: .82rem; color: #6b7280; }
+</style>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<div class="map-controls">
+    <div>
+        <span class="map-count" id="mapCount">Loading pins…</span>
+    </div>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+        <button class="map-refresh-btn" onclick="loadMapOrders()">
+            🔄 Refresh
+        </button>
+        <button class="map-refresh-btn" id="locateBtn" onclick="locateMe()">
+            📍 My Location
+        </button>
+    </div>
+</div>
+
+<div class="map-legend">
+    <div class="map-legend-item">
+        <div class="map-legend-dot" style="background:#10b981;"></div> Available
+    </div>
+    <div class="map-legend-item">
+        <div class="map-legend-dot" style="background:#3b82f6;"></div> My Assigned
+    </div>
+    <div class="map-legend-item">
+        <div class="map-legend-dot" style="background:#f59e0b;"></div> My Picked Up
+    </div>
+    <div class="map-legend-item">
+        <div class="map-legend-dot" style="background:#6366f1;"></div> My Location
+    </div>
+</div>
+
+<div id="rdr-map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // ── Map init (centered on Philippines) ──────────────────────────────────
+    const map = L.map('rdr-map', { zoomControl: true }).setView([12.8797, 121.7740], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+    }).addTo(map);
+
+    // ── Custom marker icons ──────────────────────────────────────────────────
+    function makeIcon(color) {
+        return L.divIcon({
+            className: '',
+            html: `<div style="
+                width:32px;height:32px;border-radius:50% 50% 50% 0;
+                background:${color};border:3px solid #fff;
+                box-shadow:0 2px 8px rgba(0,0,0,.3);
+                transform:rotate(-45deg);
+            "></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -34],
+        });
+    }
+
+    const icons = {
+        available: makeIcon('#10b981'),
+        assigned:  makeIcon('#3b82f6'),
+        shipped:   makeIcon('#f59e0b'),
+        me:        makeIcon('#6366f1'),
+    };
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let markers = [];
+    let myMarker = null;
+
+    function clearMarkers() {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+    }
+
+    function statusBadge(status, isMine) {
+        if (status === 'verified')  return `<span class="map-popup-badge badge-available">AVAILABLE</span>`;
+        if (status === 'assigned')  return `<span class="map-popup-badge badge-assigned">ASSIGNED</span>`;
+        if (status === 'shipped')   return `<span class="map-popup-badge badge-shipped">PICKED UP</span>`;
+        return `<span class="map-popup-badge badge-available">${status.toUpperCase()}</span>`;
+    }
+
+    function buildPopup(o) {
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            o.delivery_address + ', ' + o.delivery_city + ', ' + o.delivery_province
+        )}`;
+        const detailUrl = `/orders/${o.id}`;
+        return `
+        <div class="map-popup">
+            <div class="map-popup-header">
+                <span class="map-popup-order">${o.order_number}</span>
+                ${statusBadge(o.status, o.is_mine)}
+            </div>
+            <div class="map-popup-body">
+                <div class="map-popup-row">
+                    <span class="map-popup-label">Address</span>
+                    <span>${o.delivery_address}, ${o.delivery_city}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-label">Buyer</span>
+                    <span>${o.buyer || '—'}${o.buyer_phone ? ' · ' + o.buyer_phone : ''}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-label">COD</span>
+                    <span style="font-weight:700;color:#059669;">₱${parseFloat(o.total_amount).toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="map-popup-actions">
+                <a href="${mapsUrl}" target="_blank" rel="noopener" class="map-popup-btn btn-nav">
+                    🗺️ Navigate
+                </a>
+                <a href="${detailUrl}" class="map-popup-btn btn-detail">
+                    📋 Details
+                </a>
+            </div>
+        </div>`;
+    }
+
+    // ── Load orders from API ─────────────────────────────────────────────────
+    function loadMapOrders() {
+        document.getElementById('mapCount').textContent = 'Loading…';
+        fetch('/rider/map-orders')
+        .then(r => {
+            if (!r.ok) throw new Error('Not authorized');
+            return r.json();
+        })
+        .then(orders => {
+            clearMarkers();
+            if (!orders.length) {
+                document.getElementById('mapCount').textContent = 'No pinned deliveries';
+                return;
+            }
+
+            const bounds = [];
+            orders.forEach(o => {
+                const icon = o.is_mine
+                    ? (o.status === 'shipped' ? icons.shipped : icons.assigned)
+                    : icons.available;
+
+                const m = L.marker([o.lat, o.lng], { icon })
+                    .addTo(map)
+                    .bindPopup(buildPopup(o), { maxWidth: 280 });
+                markers.push(m);
+                bounds.push([o.lat, o.lng]);
+            });
+
+            if (bounds.length) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+
+            const mine  = orders.filter(o => o.is_mine).length;
+            const avail = orders.length - mine;
+            document.getElementById('mapCount').textContent =
+                `${orders.length} pin${orders.length !== 1 ? 's' : ''} — ${avail} available, ${mine} mine`;
+        })
+        .catch(err => {
+            document.getElementById('mapCount').textContent = 'Could not load map data';
+            console.error(err);
+        });
+    }
+
+    // ── Locate rider ─────────────────────────────────────────────────────────
+    function locateMe() {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            if (myMarker) map.removeLayer(myMarker);
+            myMarker = L.marker([lat, lng], { icon: icons.me })
+                .addTo(map)
+                .bindPopup('<div style="padding:.5rem .75rem;font-weight:700;font-size:.85rem;">📍 You are here</div>')
+                .openPopup();
+            map.setView([lat, lng], 14);
+        }, () => {
+            alert('Could not get your location. Please allow location access.');
+        });
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    loadMapOrders();
+    // Auto-refresh every 60 seconds
+    setInterval(loadMapOrders, 60000);
+</script>
+{% endblock %}

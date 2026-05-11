@@ -419,6 +419,11 @@ class ApiService {
     return res.data;
   }
 
+  Future<List<dynamic>> getRiderMapOrders() async {
+    final res = await _dio.get('/rider/map-orders');
+    return res.data as List;
+  }
+
   Future<Map<String, dynamic>> claimOrder(int orderId) async {
     final res = await _dio.post('/rider/orders/$orderId/claim');
     return res.data;

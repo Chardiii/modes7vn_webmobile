@@ -467,6 +467,13 @@ def checkout():
         from notifications import notify_order_placed
         notify_order_placed(order)
         db.session.commit()
+        # Geocode delivery address (best-effort, non-blocking)
+        try:
+            from geocoding import geocode_order
+            geocode_order(order)
+            db.session.commit()
+        except Exception:
+            pass
         send_order_status_email(order)
         
         # Handle online payment

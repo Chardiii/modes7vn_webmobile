@@ -9,6 +9,7 @@ import 'screens/rider_dashboard_screen.dart';
 import 'theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthProvider()..checkAuth(),

@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
 from flask_login import current_user
-from models import Order, OrderStatus, Product
+from models import db, Order, OrderStatus, Product
 from routes.products import CATEGORIES
 
 main_bp = Blueprint('main', __name__)
@@ -70,6 +70,74 @@ def dashboard():
 @main_bp.route('/about')
 def about():
     return render_template('about.html')
+
+
+@main_bp.route('/rider/map')
+def rider_map():
+    if not current_user.is_authenticated or not current_user.is_rider():
+        return redirect(url_for('auth.login'))
+    return render_template('rider_map.html')
+
+
+@main_bp.route('/rider/map-orders')
+def rider_map_orders():
+    """Session-auth JSON endpoint for the web map."""
+    if not current_user.is_authenticated or not current_user.is_rider():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    orders = Order.query.filter(
+        db.or_(
+            db.and_(
+                Order.status == OrderStatus.VERIFIED.value,
+                Order.rider_id.is_(None)
+            ),
+            db.and_(
+                Order.rider_id == current_user.id,
+                Order.status.in_([
+                    OrderStatus.ASSIGNED.value,
+                    OrderStatus.SHIPPED.value
+                ])
+            )
+        )
+    ).all()
+
+    # Geocode missing coords (max 5)
+    geocoded = 0
+    for o in orders:
+        if not o.latitude or not o.longitude:
+            if geocoded < 5:
+                try:
+                    from geocoding import geocode_order
+                    if geocode_order(o):
+                        geocoded += 1
+                except Exception:
+                    pass
+    if geocoded:
+        db.session.commit()
+
+    result = []
+    for o in orders:
+        if not o.latitude or not o.longitude:
+            continue
+        phone = o.buyer.phone if o.buyer else None
+        if phone:
+            visible = min(4, len(phone))
+            phone = '*' * (len(phone) - visible) + phone[-visible:]
+        result.append({
+            'id':               o.id,
+            'order_number':     o.order_number,
+            'status':           o.status,
+            'total_amount':     o.total_amount,
+            'delivery_address': o.delivery_address,
+            'delivery_city':    o.delivery_city,
+            'delivery_province':o.delivery_province,
+            'buyer':            o.buyer.username if o.buyer else None,
+            'buyer_phone':      phone,
+            'lat':              float(o.latitude),
+            'lng':              float(o.longitude),
+            'is_mine':          o.rider_id == current_user.id,
+        })
+    return jsonify(result)
 
 @main_bp.route('/contact', methods=['GET', 'POST'])
 def contact():

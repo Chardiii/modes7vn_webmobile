@@ -34,7 +34,11 @@ class Order(db.Model):
     delivered_at = db.Column(db.DateTime)
 
     # Proof of delivery
-    proof_of_delivery = db.Column(db.String(255), nullable=True)  # path to uploaded photo
+    proof_of_delivery = db.Column(db.String(255), nullable=True)
+
+    # Geocoded coordinates (cached from delivery address)
+    latitude  = db.Column(db.Numeric(10, 8), nullable=True)
+    longitude = db.Column(db.Numeric(11, 8), nullable=True)
 
     # Cancellation tracking
     cancel_reason       = db.Column(db.String(500))

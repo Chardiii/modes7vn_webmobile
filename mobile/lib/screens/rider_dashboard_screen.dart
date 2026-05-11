@@ -11,6 +11,7 @@ import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'messages_screen.dart';
 import 'message_thread_screen.dart';
+import 'rider_map_screen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -274,6 +275,12 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                 _loadNotifCount();
               },
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Delivery Map',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const RiderMapScreen())),
           ),
           IconButton(
               icon: const Icon(Icons.person_outline),

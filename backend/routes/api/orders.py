@@ -287,6 +287,12 @@ def api_checkout():
     from notifications import notify_order_placed
     for o in orders:
         notify_order_placed(o)
+        # Geocode delivery address (non-blocking best-effort)
+        try:
+            from geocoding import geocode_order
+            geocode_order(o)
+        except Exception:
+            pass
     db.session.commit()
     return jsonify({
         'message': f'{len(orders)} order(s) placed successfully',
@@ -627,3 +633,64 @@ def api_deliver_order(order_id):
     notify_order_status(order)
     db.session.commit()
     return jsonify({'message': 'Marked as delivered', 'order': _order_dict(order)})
+
+
+@api_bp.route('/rider/map-orders', methods=['GET'])
+@jwt_required()
+def api_rider_map_orders():
+    """Returns all active + available orders with coordinates for the map."""
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
+    if not user.is_rider():
+        return jsonify({'error': 'Rider access required'}), 403
+
+    # Available (verified, unclaimed) + rider's active orders
+    orders = Order.query.filter(
+        db.or_(
+            db.and_(
+                Order.status == OrderStatus.VERIFIED.value,
+                Order.rider_id.is_(None)
+            ),
+            db.and_(
+                Order.rider_id == user_id,
+                Order.status.in_([
+                    OrderStatus.ASSIGNED.value,
+                    OrderStatus.SHIPPED.value
+                ])
+            )
+        )
+    ).all()
+
+    # Geocode any missing coordinates on-the-fly (max 5 to stay within rate limit)
+    geocoded = 0
+    for o in orders:
+        if not o.latitude or not o.longitude:
+            if geocoded < 5:
+                try:
+                    from geocoding import geocode_order
+                    if geocode_order(o):
+                        geocoded += 1
+                except Exception:
+                    pass
+    if geocoded:
+        db.session.commit()
+
+    result = []
+    for o in orders:
+        if not o.latitude or not o.longitude:
+            continue  # skip orders we couldn't geocode
+        result.append({
+            'id':              o.id,
+            'order_number':    o.order_number,
+            'status':          o.status,
+            'total_amount':    o.total_amount,
+            'delivery_address': o.delivery_address,
+            'delivery_city':   o.delivery_city,
+            'delivery_province': o.delivery_province,
+            'buyer':           o.buyer.username if o.buyer else None,
+            'buyer_phone':     _mask_phone(o.buyer.phone) if o.buyer else None,
+            'lat':             float(o.latitude),
+            'lng':             float(o.longitude),
+            'is_mine':         o.rider_id == user_id,
+        })
+    return jsonify(result)

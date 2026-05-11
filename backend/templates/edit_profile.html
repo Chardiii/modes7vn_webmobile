@@ -1,4 +1,4 @@
-{% extends "rider_base.html" if current_user.is_rider() else "base.html" %}
+{% extends "rider_base.html" if current_user.is_rider() else ("seller_base.html" if current_user.is_seller() else "base.html") %}
 {% set active_page = 'profile' %}
 {% from "macros/psgc_address.html" import psgc_address %}
 
