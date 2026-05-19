@@ -32,11 +32,19 @@ def dashboard():
             Order.status.in_([OrderStatus.ASSIGNED.value, OrderStatus.SHIPPED.value])
         ).order_by(Order.created_at.desc()).all()
 
-        # All verified orders not yet claimed by any rider
-        available_orders = Order.query.filter_by(
+        # All verified orders not yet claimed — filtered by rider's service area
+        available_query = Order.query.filter_by(
             status=OrderStatus.VERIFIED.value,
             rider_id=None
-        ).order_by(Order.created_at.asc()).all()
+        )
+        if current_user.service_area:
+            available_query = available_query.filter(
+                db.or_(
+                    Order.delivery_city.ilike(f'%{current_user.service_area}%'),
+                    Order.delivery_province.ilike(f'%{current_user.service_area}%')
+                )
+            )
+        available_orders = available_query.order_by(Order.created_at.asc()).all()
 
         delivered_orders = Order.query.filter_by(
             rider_id=current_user.id,

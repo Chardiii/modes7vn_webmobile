@@ -522,11 +522,19 @@ def api_rider_orders():
     if not user.is_rider():
         return jsonify({'error': 'Rider access required'}), 403
 
-    # Orders available to claim (verified, no rider assigned)
-    available = Order.query.filter_by(
+    # Orders available to claim filtered by rider's service area
+    available_query = Order.query.filter_by(
         status=OrderStatus.VERIFIED.value,
         rider_id=None
-    ).order_by(Order.created_at.asc()).all()
+    )
+    if user.service_area:
+        available_query = available_query.filter(
+            db.or_(
+                Order.delivery_city.ilike(f'%{user.service_area}%'),
+                Order.delivery_province.ilike(f'%{user.service_area}%')
+            )
+        )
+    available = available_query.order_by(Order.created_at.asc()).all()
 
     active = Order.query.filter(
         Order.rider_id == user_id,

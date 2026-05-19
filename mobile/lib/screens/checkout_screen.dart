@@ -9,7 +9,13 @@ import '../theme.dart';
 class CheckoutScreen extends StatefulWidget {
   final List items;
   final double total;
-  const CheckoutScreen({super.key, required this.items, required this.total});
+  final bool isBuyNow;
+  const CheckoutScreen({
+    super.key,
+    required this.items,
+    required this.total,
+    this.isBuyNow = false,
+  });
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -141,6 +147,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _placing = true);
     try {
+      // For Buy Now: add item to cart first, then checkout with selected_items
+      if (widget.isBuyNow) {
+        for (final item in widget.items) {
+          await _api.addToCart(
+            item['product_id'] as int,
+            variantId: item['variant_id'] as int?,
+            quantity:  item['quantity']  as int,
+          );
+        }
+      }
+
       final result = await _api.checkout(
         address:       _deliveryAddress,
         city:          _deliveryCity,

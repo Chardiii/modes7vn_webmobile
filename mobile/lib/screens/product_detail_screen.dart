@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
 import '../theme.dart';
+import 'checkout_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final int productId;
@@ -277,6 +278,62 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } finally {
       if (mounted) setState(() => _addingToCart = false);
     }
+  }
+
+  void _buyNow() {
+    final p        = _product!;
+    final variants = p['variants'] as List? ?? [];
+
+    // Validate: must select size if variants exist
+    if (variants.isNotEmpty && _selectedVariantId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a size before buying')));
+      return;
+    }
+
+    // Validate: must select color if colors exist and none selected
+    final hasColors = variants
+        .any((v) => (v['color'] as String?)?.isNotEmpty == true);
+    if (hasColors && _selectedColor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a color before buying')));
+      return;
+    }
+
+    // Build the selected variant info
+    final variant = _selectedVariantId != null
+        ? variants.firstWhere(
+            (v) => v['id'] == _selectedVariantId,
+            orElse: () => <String, dynamic>{},
+          )
+        : <String, dynamic>{};
+
+    final price    = (p['price'] as num).toDouble() +
+        ((variant['price_adj'] as num?)?.toDouble() ?? 0.0);
+    final subtotal = price * _qty;
+
+    final item = {
+      'product_id':    p['id'],
+      'variant_id':    _selectedVariantId,
+      'name':          p['name'],
+      'variant_size':  variant['size'] ?? '',
+      'variant_color': _selectedColor ?? '',
+      'quantity':      _qty,
+      'price':         price,
+      'subtotal':      subtotal,
+      'seller_id':     p['seller_id'],
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(
+          items: [item],
+          total: subtotal,
+          isBuyNow: true,
+        ),
+      ),
+    );
   }
 
   Future<void> _submitReview() async {
@@ -663,8 +720,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 28),
 
-                  // Add to cart
-                  if (isBuyer)
+                  // Add to cart + Buy Now
+                  if (isBuyer) ...[
                     SizedBox(
                       width: double.infinity,
                       child: _addingToCart
@@ -704,6 +761,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                             ),
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _buyNow,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.gold,
+                          side: const BorderSide(
+                              color: AppColors.gold, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(40)),
+                        ),
+                        icon: const Icon(Icons.bolt, size: 18),
+                        label: Text('BUY NOW',
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                letterSpacing: 1.5)),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
                   const Divider(),

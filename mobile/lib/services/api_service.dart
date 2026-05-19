@@ -65,6 +65,7 @@ class ApiService {
     String shopDescription = '',
     String vehicleType = '',
     String plateNumber = '',
+    String serviceArea = '',
     String? validIdPath,
     String? businessPermitPath,
     String? driversLicensePath,
@@ -81,6 +82,7 @@ class ApiService {
       if (shopDescription.isNotEmpty) 'shop_description': shopDescription,
       if (vehicleType.isNotEmpty) 'vehicle_type': vehicleType,
       if (plateNumber.isNotEmpty) 'plate_number': plateNumber,
+      if (serviceArea.isNotEmpty) 'service_area': serviceArea,
       if (validIdPath != null)
         'valid_id': await MultipartFile.fromFile(validIdPath,
             filename: validIdPath.split('/').last),
@@ -322,23 +324,27 @@ class ApiService {
     List<String> imagePaths = const [],
     List<Map<String, dynamic>> variants = const [],
   }) async {
-    final formData = FormData.fromMap({
-      'name': name,
-      'price': price.toString(),
-      'category': category,
-      'description': description,
-      if (variants.isEmpty) 'stock': stock.toString(),
-      for (int i = 0; i < variants.length; i++) ...{
-        'variant_size[]': variants[i]['size'] ?? '',
-        'variant_color[]': variants[i]['color'] ?? '',
-        'variant_stock[]': (variants[i]['stock'] ?? 0).toString(),
-        'variant_price_adj[]': (variants[i]['price_adj'] ?? 0).toString(),
-      },
-      'images': [
-        for (final path in imagePaths)
-          await MultipartFile.fromFile(path, filename: path.split('/').last)
-      ],
-    });
+    final fields = <MapEntry<String, dynamic>>[
+      MapEntry('name',        name),
+      MapEntry('price',       price.toString()),
+      MapEntry('category',    category),
+      MapEntry('description', description),
+      if (variants.isEmpty) MapEntry('stock', stock.toString()),
+    ];
+    for (final v in variants) {
+      fields.add(MapEntry('variant_size[]',      (v['size']      ?? '').toString()));
+      fields.add(MapEntry('variant_color[]',     (v['color']     ?? '').toString()));
+      fields.add(MapEntry('variant_stock[]',     (v['stock']     ?? 0).toString()));
+      fields.add(MapEntry('variant_price_adj[]', (v['price_adj'] ?? 0).toString()));
+    }
+    final formData = FormData();
+    for (final e in fields) {
+      formData.fields.add(MapEntry(e.key, e.value.toString()));
+    }
+    for (final path in imagePaths) {
+      formData.files.add(MapEntry('images',
+          await MultipartFile.fromFile(path, filename: path.split('/').last)));
+    }
     final res = await _dio.post('/seller/products/add',
         data: formData,
         options: Options(contentType: 'multipart/form-data'));
@@ -361,25 +367,37 @@ class ApiService {
     List<int> removeImageIds = const [],
     List<Map<String, dynamic>> variants = const [],
   }) async {
-    final formData = FormData.fromMap({
-      'name': name,
-      'price': price.toString(),
-      'category': category,
-      'description': description,
-      if (variants.isEmpty) 'stock': stock.toString(),
-      'remove_image_ids': removeImageIds.map((id) => id.toString()).toList(),
-      for (int i = 0; i < variants.length; i++) ...{
-        'variant_id[]': (variants[i]['id'] ?? '').toString(),
-        'variant_size[]': variants[i]['size'] ?? '',
-        'variant_color[]': variants[i]['color'] ?? '',
-        'variant_stock[]': (variants[i]['stock'] ?? 0).toString(),
-        'variant_price_adj[]': (variants[i]['price_adj'] ?? 0).toString(),
-      },
-      'images': [
-        for (final path in newImagePaths)
-          await MultipartFile.fromFile(path, filename: path.split('/').last)
-      ],
-    });
+    final formData = FormData();
+
+    // Base fields
+    formData.fields.addAll([
+      MapEntry('name',        name),
+      MapEntry('price',       price.toString()),
+      MapEntry('category',    category),
+      MapEntry('description', description),
+      if (variants.isEmpty) MapEntry('stock', stock.toString()),
+    ]);
+
+    // Remove image ids
+    for (final id in removeImageIds) {
+      formData.fields.add(MapEntry('remove_image_ids', id.toString()));
+    }
+
+    // Variants — each field appended separately so all rows are sent
+    for (final v in variants) {
+      formData.fields.add(MapEntry('variant_id[]',       (v['id'] ?? '').toString()));
+      formData.fields.add(MapEntry('variant_size[]',     (v['size']      ?? '').toString()));
+      formData.fields.add(MapEntry('variant_color[]',    (v['color']     ?? '').toString()));
+      formData.fields.add(MapEntry('variant_stock[]',    (v['stock']     ?? 0).toString()));
+      formData.fields.add(MapEntry('variant_price_adj[]',(v['price_adj'] ?? 0).toString()));
+    }
+
+    // New images
+    for (final path in newImagePaths) {
+      formData.files.add(MapEntry('images',
+          await MultipartFile.fromFile(path, filename: path.split('/').last)));
+    }
+
     final res = await _dio.post('/seller/products/$productId/edit',
         data: formData,
         options: Options(contentType: 'multipart/form-data'));

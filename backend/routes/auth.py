@@ -150,6 +150,7 @@ def register():
         if role == UserRole.RIDER.value:
             user.vehicle_type    = request.form.get('vehicle_type', '').strip()
             user.plate_number    = request.form.get('plate_number', '').strip()
+            user.service_area    = request.form.get('service_area', '').strip()
             user.drivers_license = drivers_license_path
 
         db.session.add(user)

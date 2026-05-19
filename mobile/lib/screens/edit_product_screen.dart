@@ -23,13 +23,33 @@ const _kSizeMap = {
   'Shoes & Accessories':       ['38', '39', '40', '41', '42', '43', '44', '45'],
 };
 
-class _VariantRow {
-  int? id;
+class _Variant {
+  final int uid;
+  int? serverId;
   String size;
-  String color;
-  int stock;
-  double priceAdj;
-  _VariantRow({this.id, this.size = '', this.color = '', this.stock = 0, this.priceAdj = 0});
+  final TextEditingController colorCtrl;
+  final TextEditingController stockCtrl;
+  final TextEditingController priceAdjCtrl;
+
+  _Variant({required this.uid, this.serverId, String? size, String color = '', int stock = 0, double priceAdj = 0})
+      : size = size ?? '',
+        colorCtrl    = TextEditingController(text: color),
+        stockCtrl    = TextEditingController(text: stock.toString()),
+        priceAdjCtrl = TextEditingController(text: priceAdj == 0 ? '' : priceAdj.toString());
+
+  void dispose() {
+    colorCtrl.dispose();
+    stockCtrl.dispose();
+    priceAdjCtrl.dispose();
+  }
+
+  Map<String, dynamic> toMap() => {
+    'id':        serverId,
+    'size':      size,
+    'color':     colorCtrl.text.trim(),
+    'stock':     int.tryParse(stockCtrl.text.trim()) ?? 0,
+    'price_adj': double.tryParse(priceAdjCtrl.text.trim()) ?? 0.0,
+  };
 }
 
 class EditProductScreen extends StatefulWidget {
@@ -51,19 +71,30 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String _category = _kCategories[0];
   bool _loading = true;
   bool _saving  = false;
+  int _uidCounter = 0;
 
   List<Map<String, dynamic>> _existingImages = [];
   final Set<int> _removeIds = {};
   List<XFile> _newImages = [];
-  List<_VariantRow> _variants = [];
+  final List<_Variant> _variants = [];
 
-  bool get _hasVariantSizes => _kSizeMap.containsKey(_category);
-  List<String> get _sizeOptions => _kSizeMap[_category] ?? [];
+  bool get _hasVariants => _kSizeMap.containsKey(_category);
+  List<String> get _sizes => _kSizeMap[_category] ?? [];
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _priceCtrl.dispose();
+    _stockCtrl.dispose();
+    for (final v in _variants) v.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -75,18 +106,21 @@ class _EditProductScreenState extends State<EditProductScreen> {
       _priceCtrl.text = data['price'].toString();
       _stockCtrl.text = data['stock'].toString();
       final cat = data['category'] ?? _kCategories[0];
-
       final rawVariants = data['variants'] as List? ?? [];
+
       setState(() {
         _category = _kCategories.contains(cat) ? cat : _kCategories[0];
         _existingImages = List<Map<String, dynamic>>.from(data['images'] as List? ?? []);
-        _variants = rawVariants.map((v) => _VariantRow(
-          id: v['id'],
-          size: v['size'] ?? '',
-          color: v['color'] ?? '',
-          stock: v['stock'] ?? 0,
-          priceAdj: (v['price_adj'] ?? 0).toDouble(),
-        )).toList();
+        for (final v in rawVariants) {
+          _variants.add(_Variant(
+            uid:       _uidCounter++,
+            serverId:  v['id'],
+            size:      v['size'] ?? '',
+            color:     v['color'] ?? '',
+            stock:     v['stock'] ?? 0,
+            priceAdj:  (v['price_adj'] ?? 0).toDouble(),
+          ));
+        }
         _loading = false;
       });
     } catch (e) {
@@ -97,20 +131,25 @@ class _EditProductScreenState extends State<EditProductScreen> {
   }
 
   void _onCategoryChanged(String cat) {
+    for (final v in _variants) v.dispose();
     setState(() {
       _category = cat;
-      // Clear variants when category changes — sizes differ
       _variants.clear();
     });
   }
 
   void _addVariant() {
-    setState(() => _variants.add(_VariantRow(
-      size: _sizeOptions.isNotEmpty ? _sizeOptions[0] : '',
+    final sizes = _sizes;
+    setState(() => _variants.add(_Variant(
+      uid:  _uidCounter++,
+      size: sizes.isNotEmpty ? sizes[0] : '',
     )));
   }
 
-  void _removeVariant(int i) => setState(() => _variants.removeAt(i));
+  void _removeVariant(int i) {
+    _variants[i].dispose();
+    setState(() => _variants.removeAt(i));
+  }
 
   Future<void> _pickImages() async {
     final total = (_existingImages.length - _removeIds.length) + _newImages.length;
@@ -144,10 +183,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         stock:          _variants.isEmpty ? (int.tryParse(_stockCtrl.text.trim()) ?? 0) : 0,
         newImagePaths:  _newImages.map((x) => x.path).toList(),
         removeImageIds: _removeIds.toList(),
-        variants:       _variants.map((v) => {
-          'id': v.id, 'size': v.size, 'color': v.color,
-          'stock': v.stock, 'price_adj': v.priceAdj,
-        }).toList(),
+        variants:       _variants.map((v) => v.toMap()).toList(),
       );
       if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('✨ Product updated!')));
@@ -178,25 +214,24 @@ class _EditProductScreenState extends State<EditProductScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionLabel('PRODUCT IMAGES (max 5)'),
+              _label('PRODUCT IMAGES (max 5)'),
               const SizedBox(height: 10),
               _imagesRow(visibleExisting, totalImages),
               const SizedBox(height: 20),
 
-              _sectionLabel('PRODUCT INFO'),
+              _label('PRODUCT INFO'),
               const SizedBox(height: 12),
               _field(_nameCtrl, 'Product Name *',
                   validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
               _field(_descCtrl, 'Description', maxLines: 4),
 
-              // Category
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: DropdownButtonFormField<String>(
                   value: _category,
                   dropdownColor: AppColors.surfaceLight,
                   style: const TextStyle(color: AppColors.textPrimary),
-                  decoration: _dropDecor('Category *'),
+                  decoration: _dec('Category *'),
                   items: _kCategories.map((c) => DropdownMenuItem(
                       value: c,
                       child: Text(c, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)))).toList(),
@@ -204,7 +239,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ),
               ),
 
-              // Price + flat stock (only when no variants)
               Row(children: [
                 Expanded(child: _field(_priceCtrl, 'Price (₱) *',
                     keyboard: TextInputType.number,
@@ -227,7 +261,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ]),
 
               const SizedBox(height: 4),
-              _sectionLabel('VARIANTS & STOCK'),
+              _label('VARIANTS & STOCK'),
               const SizedBox(height: 10),
               _variantsSection(),
               const SizedBox(height: 20),
@@ -290,7 +324,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ]),
             ),
           ),
-          // Existing images
           ...visibleExisting.map((img) {
             final isPrimary = img['is_primary'] as bool? ?? false;
             return Stack(children: [
@@ -324,7 +357,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 )),
             ]);
           }),
-          // New images
           ..._newImages.asMap().entries.map((e) => Stack(children: [
             Container(
               width: 100, height: 100,
@@ -368,17 +400,25 @@ class _EditProductScreenState extends State<EditProductScreen> {
               const Icon(Icons.info_outline, color: AppColors.textMuted, size: 16),
               const SizedBox(width: 8),
               Expanded(child: Text(
-                _hasVariantSizes
-                    ? 'Add variants to set stock per size/color. Or use the Stock field above.'
+                _hasVariants
+                    ? 'Tap "Add Variant" to add stock per size/color. Or use the Stock field above.'
                     : 'This category uses a flat stock (no size variants).',
                 style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12),
               )),
             ]),
           ),
 
-        ..._variants.asMap().entries.map((e) => _variantCard(e.key, e.value)),
+        for (int i = 0; i < _variants.length; i++)
+          _VariantCard(
+            key: ValueKey(_variants[i].uid),
+            index: i,
+            variant: _variants[i],
+            sizeOptions: _sizes,
+            onRemove: () => _removeVariant(i),
+            onSizeChanged: (s) => setState(() => _variants[i].size = s),
+          ),
 
-        if (_hasVariantSizes) ...[
+        if (_hasVariants) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: _addVariant,
@@ -396,86 +436,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
-  Widget _variantCard(int i, _VariantRow v) {
-    final sizeValue = _sizeOptions.contains(v.size) ? v.size : (_sizeOptions.isNotEmpty ? _sizeOptions[0] : '');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gold.withAlpha(60)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Variant ${i + 1}', style: GoogleFonts.inter(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w700)),
-          GestureDetector(
-            onTap: () => _removeVariant(i),
-            child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: sizeValue.isNotEmpty ? sizeValue : null,
-              dropdownColor: AppColors.surface,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-              decoration: _dropDecor('Size'),
-              items: _sizeOptions.map((s) => DropdownMenuItem(
-                  value: s, child: Text(s, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)))).toList(),
-              onChanged: (s) => setState(() => v.size = s ?? ''),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextFormField(
-              initialValue: v.color,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-              decoration: _dropDecor('Color (opt.)'),
-              onChanged: (s) => v.color = s,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: TextFormField(
-              initialValue: v.stock.toString(),
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-              decoration: _dropDecor('Stock'),
-              validator: (val) => int.tryParse(val ?? '') == null ? 'Invalid' : null,
-              onChanged: (s) => v.stock = int.tryParse(s) ?? 0,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextFormField(
-              initialValue: v.priceAdj == 0 ? '' : v.priceAdj.toString(),
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-              decoration: _dropDecor('Price Adj. (₱)'),
-              onChanged: (s) => v.priceAdj = double.tryParse(s) ?? 0,
-            ),
-          ),
-        ]),
-      ]),
-    );
-  }
-
-  InputDecoration _dropDecor(String label) => InputDecoration(
+  InputDecoration _dec(String label) => InputDecoration(
     labelText: label,
     labelStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-    filled: true,
-    fillColor: AppColors.surface,
+    filled: true, fillColor: AppColors.surface,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gold, width: 1.5)),
   );
 
-  Widget _sectionLabel(String label) => Text(label,
+  Widget _label(String t) => Text(t,
       style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w600));
 
   Widget _field(TextEditingController ctrl, String label,
@@ -490,6 +461,123 @@ class _EditProductScreenState extends State<EditProductScreen> {
         decoration: InputDecoration(labelText: label),
         validator: validator,
       ),
+    );
+  }
+}
+
+// ── Variant card as its own StatefulWidget with stable key ────────────────────
+
+class _VariantCard extends StatefulWidget {
+  final int index;
+  final _Variant variant;
+  final List<String> sizeOptions;
+  final VoidCallback onRemove;
+  final ValueChanged<String> onSizeChanged;
+
+  const _VariantCard({
+    super.key,
+    required this.index,
+    required this.variant,
+    required this.sizeOptions,
+    required this.onRemove,
+    required this.onSizeChanged,
+  });
+
+  @override
+  State<_VariantCard> createState() => _VariantCardState();
+}
+
+class _VariantCardState extends State<_VariantCard> {
+  late String _selectedSize;
+
+  @override
+  void initState() {
+    super.initState();
+    final opts = widget.sizeOptions;
+    _selectedSize = opts.contains(widget.variant.size)
+        ? widget.variant.size
+        : (opts.isNotEmpty ? opts[0] : '');
+    widget.variant.size = _selectedSize;
+  }
+
+  InputDecoration _dec(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+    filled: true, fillColor: AppColors.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gold, width: 1.5)),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withAlpha(60)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Variant ${widget.index + 1}',
+              style: GoogleFonts.inter(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w700)),
+          GestureDetector(
+            onTap: widget.onRemove,
+            child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _selectedSize.isNotEmpty ? _selectedSize : null,
+              dropdownColor: AppColors.surface,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              decoration: _dec('Size'),
+              items: widget.sizeOptions.map((s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(s, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)))).toList(),
+              onChanged: (s) {
+                if (s == null) return;
+                setState(() => _selectedSize = s);
+                widget.onSizeChanged(s);
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextFormField(
+              controller: widget.variant.colorCtrl,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              decoration: _dec('Color (opt.)'),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: TextFormField(
+              controller: widget.variant.stockCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              decoration: _dec('Stock'),
+              validator: (v) => int.tryParse(v ?? '') == null ? 'Invalid' : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextFormField(
+              controller: widget.variant.priceAdjCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              decoration: _dec('Price Adj. (₱)'),
+            ),
+          ),
+        ]),
+      ]),
     );
   }
 }

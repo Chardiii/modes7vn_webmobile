@@ -32,6 +32,7 @@ class User(UserMixin, db.Model):
     # Rider specific fields
     vehicle_type = db.Column(db.String(50))
     vehicle_number = db.Column(db.String(50))
+    service_area = db.Column(db.String(120))  # city/municipality rider serves
 
     # Verification documents
     valid_id = db.Column(db.String(255))           # all roles

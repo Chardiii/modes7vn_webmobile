@@ -25,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _shopNameCtrl     = TextEditingController();
   final _shopDescCtrl     = TextEditingController();
   final _plateCtrl        = TextEditingController();
+  final _serviceAreaCtrl  = TextEditingController();
 
   String _role = 'buyer';
   String _vehicleType = 'Motorcycle';
@@ -171,6 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         shopDescription:     _shopDescCtrl.text.trim(),
         vehicleType:         _vehicleType,
         plateNumber:         _plateCtrl.text.trim(),
+        serviceArea:         _serviceAreaCtrl.text.trim(),
         validIdPath:         _validIdFile?.path,
         businessPermitPath:  _businessPermitFile?.path,
         driversLicensePath:  _driversLicenseFile?.path,
@@ -413,6 +415,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (v) => v == null || v.trim().isEmpty
                         ? 'Plate number is required'
                         : null),
+                _field(_serviceAreaCtrl, 'Service Area *',
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? 'Service area is required'
+                        : null),
+                // hint text
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12, top: -8),
+                  child: Text('City or municipality you will deliver in (e.g. Calamba, Laguna)',
+                      style: GoogleFonts.inter(
+                          color: AppColors.textMuted, fontSize: 11)),
+                ),
                 _filePicker("Driver's License", _driversLicenseFile, 'drivers_license', required: true),
               ],
 

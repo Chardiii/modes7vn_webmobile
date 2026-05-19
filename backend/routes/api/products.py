@@ -107,7 +107,8 @@ def api_product_detail(product_id):
     ]
 
     data = _product_dict(p, base)
-    data.update({'images': images, 'variants': variants, 'reviews': reviews})
+    data.update({'images': images, 'variants': variants, 'reviews': reviews,
+                 'seller_id': p.seller_id})
     return jsonify(data)
 
 

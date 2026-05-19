@@ -227,10 +227,18 @@
             <a href="{{ url_for('auth.login') }}" class="pd-btn-cart" style="text-decoration:none;text-align:center;">
                 LOGIN TO BUY
             </a>
-            {% else %}
+
+            {% elif current_user.is_buyer() and total_stock == 0 %}
             <div class="pd-out-of-stock-msg">
                 <span>😔</span> This product is currently out of stock.
             </div>
+
+            {% elif current_user.is_buyer() and total_stock > 0 %}
+            {# buyer but not authenticated — shouldn't reach here, safety fallback #}
+            <a href="{{ url_for('auth.login') }}" class="pd-btn-cart" style="text-decoration:none;text-align:center;">
+                LOGIN TO BUY
+            </a>
+
             {% endif %}
 
             <a href="{{ url_for('products.list_products') }}" class="pd-btn-back">

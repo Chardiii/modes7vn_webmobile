@@ -163,6 +163,7 @@ def api_register():
     if role == UserRole.RIDER.value:
         user.vehicle_type    = data.get('vehicle_type', '').strip()
         user.plate_number    = data.get('plate_number', '').strip()
+        user.service_area    = data.get('service_area', '').strip()
         user.drivers_license = drivers_license_path
 
     db.session.add(user)
@@ -235,6 +236,8 @@ def api_update_profile():
             user.vehicle_type = data['vehicle_type']
         if 'plate_number' in data:
             user.plate_number = data['plate_number']
+        if 'service_area' in data:
+            user.service_area = data['service_area']
 
     db.session.commit()
     return jsonify(_user_dict(user))
@@ -262,4 +265,5 @@ def _user_dict(user):
         # Rider fields
         'vehicle_type': user.vehicle_type,
         'plate_number': user.plate_number,
+        'service_area': user.service_area,
     }
