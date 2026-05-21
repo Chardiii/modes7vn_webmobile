@@ -9,7 +9,16 @@ import os
 
 mail = Mail()
 
-def create_app(config_name='development'):
+def create_app(config_name=None):
+    if config_name is None:
+        # Use 'production' when running on Railway or when FLASK_ENV is explicitly
+        # set to production; fall back to 'development' for local work.
+        if os.environ.get('RAILWAY_ENVIRONMENT_NAME') or \
+                os.environ.get('FLASK_ENV') == 'production':
+            config_name = 'production'
+        else:
+            config_name = 'development'
+
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
