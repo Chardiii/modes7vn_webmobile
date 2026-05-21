@@ -61,6 +61,10 @@ class ApiService {
     String firstName = '',
     String lastName = '',
     String phone = '',
+    String region = '',
+    String province = '',
+    String municipality = '',
+    String barangay = '',
     String shopName = '',
     String shopDescription = '',
     String vehicleType = '',
@@ -78,6 +82,10 @@ class ApiService {
       'first_name': firstName,
       'last_name': lastName,
       'phone': phone,
+      if (region.isNotEmpty) 'region': region,
+      if (province.isNotEmpty) 'province': province,
+      if (municipality.isNotEmpty) 'municipality': municipality,
+      if (barangay.isNotEmpty) 'barangay': barangay,
       if (shopName.isNotEmpty) 'shop_name': shopName,
       if (shopDescription.isNotEmpty) 'shop_description': shopDescription,
       if (vehicleType.isNotEmpty) 'vehicle_type': vehicleType,
@@ -106,6 +114,18 @@ class ApiService {
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     final res = await _dio.put('/auth/profile', data: data);
+    return res.data;
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final res = await _dio.post('/auth/forgot-password', data: {'email': email});
+    return res.data;
+  }
+
+  Future<Map<String, dynamic>> resetPassword(
+      {required String token, required String password}) async {
+    final res = await _dio.post('/auth/reset-password',
+        data: {'token': token, 'password': password});
     return res.data;
   }
 

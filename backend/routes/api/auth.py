@@ -86,8 +86,12 @@ def api_register():
     password   = data.get('password', '')
     first_name = data.get('first_name', '').strip()
     last_name  = data.get('last_name', '').strip()
-    phone      = data.get('phone', '').strip()
-    role       = data.get('role', UserRole.BUYER.value).strip()
+    phone        = data.get('phone', '').strip()
+    region       = data.get('region', '').strip()
+    province     = data.get('province', '').strip()
+    municipality = data.get('municipality', '').strip()
+    barangay     = data.get('barangay', '').strip()
+    role         = data.get('role', UserRole.BUYER.value).strip()
 
     valid_roles = [UserRole.BUYER.value, UserRole.SELLER.value, UserRole.RIDER.value]
     if role not in valid_roles:
@@ -147,6 +151,8 @@ def api_register():
     user = User(
         username=username, email=email,
         first_name=first_name, last_name=last_name, phone=phone,
+        region=region, province=province,
+        municipality=municipality, barangay=barangay,
         role=role,
         is_active=False, is_verified=False,
         email_verified=False,
@@ -213,6 +219,59 @@ def api_login():
         'access_token': token,
         'user': _user_dict(user)
     })
+
+
+@api_bp.route('/auth/forgot-password', methods=['POST'])
+def api_forgot_password():
+    from flask import render_template, url_for, current_app
+    from datetime import datetime, timedelta
+    data  = request.get_json(silent=True) or {}
+    email = data.get('email', '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        token  = uuid.uuid4().hex
+        expiry = datetime.utcnow() + timedelta(hours=1)
+        user.reset_token        = token
+        user.reset_token_expiry = expiry
+        db.session.commit()
+        try:
+            from flask_mail import Message as MailMsg
+            from extensions import mail
+            reset_url = url_for('auth.reset_password', token=token, _external=True)
+            html = render_template('email/reset_password.html',
+                                   username=user.username, reset_url=reset_url)
+            msg = MailMsg('Mode S7vn — Password Reset', recipients=[email], html=html)
+            mail.send(msg)
+        except Exception as e:
+            current_app.logger.warning(f'Reset email failed: {e}')
+
+    return jsonify({'message': 'If that email is registered, a reset link has been sent.'})
+
+
+@api_bp.route('/auth/reset-password', methods=['POST'])
+def api_reset_password():
+    from datetime import datetime
+    data     = request.get_json(silent=True) or {}
+    token    = data.get('token', '').strip()
+    password = data.get('password', '')
+
+    if not token or not password:
+        return jsonify({'error': 'Token and new password are required'}), 400
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+        return jsonify({'error': 'Invalid or expired reset token'}), 400
+
+    user.set_password(password)
+    user.reset_token        = None
+    user.reset_token_expiry = None
+    db.session.commit()
+    return jsonify({'message': 'Password reset successfully. You can now log in.'})
 
 
 @api_bp.route('/auth/me', methods=['GET'])

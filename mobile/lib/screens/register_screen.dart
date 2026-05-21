@@ -26,6 +26,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _shopDescCtrl    = TextEditingController();
   final _plateCtrl       = TextEditingController();
   final _serviceAreaCtrl = TextEditingController();
+  final _regionCtrl      = TextEditingController();
+  final _provinceCtrl    = TextEditingController();
+  final _municipalityCtrl = TextEditingController();
+  final _barangayCtrl    = TextEditingController();
 
   String _role        = 'buyer';
   String _vehicleType = 'Motorcycle';
@@ -69,6 +73,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _shopDescCtrl.dispose();
     _plateCtrl.dispose();
     _serviceAreaCtrl.dispose();
+    _regionCtrl.dispose();
+    _provinceCtrl.dispose();
+    _municipalityCtrl.dispose();
+    _barangayCtrl.dispose();
     super.dispose();
   }
 
@@ -196,6 +204,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         firstName:          _firstNameCtrl.text.trim(),
         lastName:           _lastNameCtrl.text.trim(),
         phone:              _phoneCtrl.text.trim(),
+        region:             _regionCtrl.text.trim(),
+        province:           _provinceCtrl.text.trim(),
+        municipality:       _municipalityCtrl.text.trim(),
+        barangay:           _barangayCtrl.text.trim(),
         shopName:           _shopNameCtrl.text.trim(),
         shopDescription:    _shopDescCtrl.text.trim(),
         vehicleType:        _vehicleType,
@@ -314,6 +326,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   }),
               _field(_phoneCtrl, 'Phone', keyboard: TextInputType.phone),
+
+              const Divider(),
+              const SizedBox(height: 8),
+              Text('ADDRESS',
+                  style: GoogleFonts.inter(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              _field(_regionCtrl, 'Region'),
+              _field(_provinceCtrl, 'Province'),
+              _field(_municipalityCtrl, 'City / Municipality'),
+              _field(_barangayCtrl, 'Barangay'),
+
               // ── Password with strength indicator ──
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),

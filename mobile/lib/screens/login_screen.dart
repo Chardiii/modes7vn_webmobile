@@ -7,6 +7,7 @@ import 'buyer_home_screen.dart';
 import 'seller_dashboard_screen.dart';
 import 'rider_dashboard_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -143,7 +144,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 onSubmitted: (_) => _submit(),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen())),
+                  child: Text('Forgot password?',
+                      style: GoogleFonts.inter(
+                          color: AppColors.gold,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                ),
+              ),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: loading
