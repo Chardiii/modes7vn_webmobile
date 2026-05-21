@@ -35,7 +35,12 @@ def create_app(config_name='development'):
     app.register_blueprint(messages_bp)
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            app.logger.warning(
+                "db.create_all() failed — database may not be reachable yet: %s", e
+            )
 
     @app.errorhandler(404)
     def not_found(error):
