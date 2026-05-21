@@ -169,6 +169,21 @@ def api_register():
     db.session.add(user)
     db.session.commit()
 
+    # Send verification email — same as web app
+    try:
+        from flask_mail import Message as MailMsg
+        from extensions import mail
+        from flask import render_template, url_for, current_app
+        verify_url = url_for('auth.verify_email', token=verify_token, _external=True)
+        html = render_template('email/verify_email.html',
+                               username=username, verify_url=verify_url)
+        msg = MailMsg('Mode S7vn — Verify Your Email',
+                      recipients=[email], html=html)
+        mail.send(msg)
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.warning(f'Verification email failed: {e}')
+
     return jsonify({
         'message': 'Registration successful. Please verify your email then wait for admin approval.'
     }), 201

@@ -86,36 +86,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  String get _deliveryAddress  => _useDifferentAddress ? _addressCtrl.text.trim()  : _savedAddress;
-  String get _deliveryCity     => _useDifferentAddress ? _cityCtrl.text.trim()     : _savedCity;
-  String get _deliveryProvince => _useDifferentAddress ? _provinceCtrl.text.trim() : _savedProvince;
-  String get _deliveryZip      => _useDifferentAddress ? _zipCtrl.text.trim()      : _savedZip;
+  String get _deliveryAddress  => (_useDifferentAddress || !_hasSavedAddress) ? _addressCtrl.text.trim()  : _savedAddress;
+  String get _deliveryCity     => (_useDifferentAddress || !_hasSavedAddress) ? _cityCtrl.text.trim()     : _savedCity;
+  String get _deliveryProvince => (_useDifferentAddress || !_hasSavedAddress) ? _provinceCtrl.text.trim() : _savedProvince;
+  String get _deliveryZip      => (_useDifferentAddress || !_hasSavedAddress) ? _zipCtrl.text.trim()      : _savedZip;
 
-  int? get _sellerId {
-    if (widget.items.isEmpty) return null;
-    return widget.items.first['seller_id'] as int?;
-  }
-
-  Future<void> _estimateShipping() async {
+Future<void> _estimateShipping() async {
     final city     = _deliveryCity;
     final province = _deliveryProvince;
-    final sellerId = _sellerId;
-    if (city.isEmpty || province.isEmpty || sellerId == null) return;
+    if (city.isEmpty || province.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please enter city and province first.')));
+      return;
+    }
 
-    setState(() => _estimating = true);
+    // Collect unique seller IDs from items
+    final sellerIds = widget.items
+        .map((i) => i['seller_id'] as int?)
+        .whereType<int>()
+        .toSet();
+    if (sellerIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not determine seller for shipping estimate.')));
+      return;
+    }
+
+    setState(() {
+      _estimating  = true;
+      _shippingFee = null;
+    });
     try {
-      final result = await _api.estimateShipping(
-        sellerId: sellerId,
-        deliveryCity: city,
-        deliveryProvince: province,
-      );
+      double totalFee = 0;
+      String zone = '';
+      for (final sellerId in sellerIds) {
+        final result = await _api.estimateShipping(
+          sellerId: sellerId,
+          deliveryCity: city,
+          deliveryProvince: province,
+        );
+        totalFee += (result['fee'] as num).toDouble();
+        zone = result['zone'] ?? '';
+      }
       if (!mounted) return;
       setState(() {
-        _shippingFee  = (result['fee'] as num).toDouble();
-        _shippingZone = result['zone'] ?? '';
+        _shippingFee  = totalFee;
+        _shippingZone = zone;
       });
-    } catch (_) {
-      // silently fail — user can still place order
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Shipping estimate failed: $e')));
     } finally {
       if (mounted) setState(() => _estimating = false);
     }
@@ -540,7 +560,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: const TextStyle(color: AppColors.textPrimary),
             decoration: const InputDecoration(labelText: 'City / Municipality *'),
             validator: (v) => v == null || v.trim().isEmpty ? 'City is required' : null,
-            onEditingComplete: _estimateShipping,
           ),
         ),
         const SizedBox(width: 12),
@@ -550,7 +569,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: const TextStyle(color: AppColors.textPrimary),
             decoration: const InputDecoration(labelText: 'Province *'),
             validator: (v) => v == null || v.trim().isEmpty ? 'Province is required' : null,
-            onEditingComplete: _estimateShipping,
           ),
         ),
       ]),
@@ -560,6 +578,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         keyboardType: TextInputType.number,
         style: const TextStyle(color: AppColors.textPrimary),
         decoration: const InputDecoration(labelText: 'ZIP Code'),
+      ),
+      const SizedBox(height: 14),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _estimating ? null : () {
+            FocusScope.of(context).unfocus();
+            _estimateShipping();
+          },
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.gold,
+            side: const BorderSide(color: AppColors.gold),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: _estimating
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2))
+              : const Icon(Icons.local_shipping_outlined, size: 18),
+          label: Text(
+            _estimating ? 'Calculating...' : 'Confirm Address & Get Shipping Fee',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ),
       ),
     ]);
   }

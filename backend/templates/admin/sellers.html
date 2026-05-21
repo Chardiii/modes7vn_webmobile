@@ -21,6 +21,7 @@
                 <th>Products</th>
                 <th>Orders</th>
                 <th>Status</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -46,9 +47,37 @@
                         {{ 'Active' if seller.is_active else 'Inactive' }}
                     </span>
                 </td>
+                <td>
+                    <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                        {% if not seller.is_active and not seller.is_banned %}
+                        <form method="POST" action="{{ url_for('admin.edit_user', user_id=seller.id) }}">
+                            <input type="hidden" name="is_active" value="on">
+                            <input type="hidden" name="is_verified" value="on">
+                            <button type="submit" class="adm-btn adm-btn-approve"
+                                onclick="return confirm('Approve {{ seller.username }}?')">✓ Approve</button>
+                        </form>
+                        {% endif %}
+                        {% if seller.is_active and not seller.is_banned %}
+                        <form method="POST" action="{{ url_for('admin.suspend_user', user_id=seller.id) }}">
+                            <button type="submit" class="adm-btn adm-btn-warning"
+                                onclick="return confirm('Suspend {{ seller.username }}?')">⏸ Suspend</button>
+                        </form>
+                        {% endif %}
+                        {% if seller.is_banned %}
+                        <form method="POST" action="{{ url_for('admin.unban_user', user_id=seller.id) }}">
+                            <button type="submit" class="adm-btn adm-btn-approve"
+                                onclick="return confirm('Unban {{ seller.username }}?')">↩ Unban</button>
+                        </form>
+                        {% endif %}
+                        <button class="adm-btn adm-btn-danger"
+                                onclick="openDeleteModal({{ seller.id }}, '{{ seller.username }}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem;">No sellers registered yet.</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:#aaa;padding:2rem;">No sellers registered yet.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -61,5 +90,37 @@
     </div>
     {% endif %}
 </div>
+
+{# ── Delete Modal ── #}
+<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:2rem;width:420px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,.2);">
+        <h5 style="font-weight:800;color:#111827;margin-bottom:.5rem;">🗑️ Delete Seller</h5>
+        <p style="font-size:.85rem;color:#6b7280;margin-bottom:1.25rem;">
+            This will <strong style="color:#dc2626;">permanently delete</strong> <strong id="deleteUsername"></strong>
+            and all their products, orders, and data. This cannot be undone.
+        </p>
+        <form method="POST" id="deleteForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:flex;gap:.75rem;justify-content:flex-end;">
+                <button type="button" onclick="closeDeleteModal()" class="adm-btn adm-btn-ghost">Cancel</button>
+                <button type="submit" class="adm-btn adm-btn-danger">Yes, Delete Permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openDeleteModal(userId, username) {
+    document.getElementById('deleteUsername').textContent = username
+    document.getElementById('deleteForm').action = `/admin/users/${userId}/delete`
+    document.getElementById('deleteModal').style.display = 'flex'
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none'
+}
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal()
+})
+</script>
 
 {% endblock %}

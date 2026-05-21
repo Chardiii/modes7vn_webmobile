@@ -214,27 +214,65 @@ def suspend_user(user_id):
 @login_required
 @admin_required
 def delete_user(user_id):
-    from models import CartItem, Wishlist, Review, Order, OrderItem, Payment
+    from models import CartItem, Wishlist, Review, Order, OrderItem, Payment, Product
+    from models.product import ProductImage, ProductVariant
+    from models.message import Message
+    from models.notification import Notification
     user = User.query.get_or_404(user_id)
     if user.is_admin():
         flash('Cannot delete an admin account.', 'danger')
         return redirect(url_for('admin.manage_users'))
     try:
-        # Delete cart items and wishlist
+        # 1. Collect all order IDs tied to this user
+        seller_product_ids = [p.id for p in Product.query.filter_by(seller_id=user.id).all()]
+
+        seller_order_ids = set()
+        if seller_product_ids:
+            rows = db.session.query(OrderItem.order_id).filter(
+                OrderItem.product_id.in_(seller_product_ids)
+            ).distinct().all()
+            seller_order_ids = {r[0] for r in rows}
+
+        buyer_order_ids = {r[0] for r in db.session.query(Order.id).filter_by(buyer_id=user.id).all()}
+        all_order_ids = seller_order_ids | buyer_order_ids
+
+        # 2. Delete all children of those orders (in FK dependency order)
+        if all_order_ids:
+            Message.query.filter(Message.order_id.in_(all_order_ids)).delete(synchronize_session='fetch')
+            Review.query.filter(Review.order_id.in_(all_order_ids)).delete(synchronize_session='fetch')
+            Payment.query.filter(Payment.order_id.in_(all_order_ids)).delete(synchronize_session='fetch')
+            OrderItem.query.filter(OrderItem.order_id.in_(all_order_ids)).delete(synchronize_session='fetch')
+            Order.query.filter(Order.id.in_(all_order_ids)).delete(synchronize_session='fetch')
+            db.session.flush()
+
+        # 3. Delete all children of seller's products, then the products
+        if seller_product_ids:
+            CartItem.query.filter(CartItem.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            Wishlist.query.filter(Wishlist.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            Review.query.filter(Review.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            Message.query.filter(Message.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            # variant_id on any remaining order_items must be cleared before variants are deleted
+            OrderItem.query.filter(OrderItem.product_id.in_(seller_product_ids)).update(
+                {'variant_id': None}, synchronize_session='fetch')
+            ProductVariant.query.filter(ProductVariant.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            ProductImage.query.filter(ProductImage.product_id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            db.session.flush()
+            Product.query.filter(Product.id.in_(seller_product_ids)).delete(synchronize_session='fetch')
+            db.session.flush()
+
+        # 4. Nullify rider references on remaining orders
+        Order.query.filter_by(rider_id=user.id).update({'rider_id': None})
+
+        # 5. Delete remaining user-level data
+        Message.query.filter(
+            db.or_(Message.sender_id == user.id, Message.receiver_id == user.id)
+        ).delete(synchronize_session='fetch')
+        Notification.query.filter_by(user_id=user.id).delete()
         CartItem.query.filter_by(user_id=user.id).delete()
         Wishlist.query.filter_by(user_id=user.id).delete()
-        # Delete reviews written by this user
         Review.query.filter_by(reviewer_id=user.id).delete()
-        # Nullify rider/seller references on orders so order history is preserved
-        Order.query.filter_by(rider_id=user.id).update({'rider_id': None})
-        Order.query.filter_by(seller_id=user.id).update({'seller_id': None})
-        # Delete orders where this user is the buyer (cascade handles items+payment)
-        buyer_orders = Order.query.filter_by(buyer_id=user.id).all()
-        for order in buyer_orders:
-            Payment.query.filter_by(order_id=order.id).delete()
-            OrderItem.query.filter_by(order_id=order.id).delete()
-            db.session.delete(order)
-        db.session.flush()
+
+        # 6. Delete the user
         username = user.username
         db.session.delete(user)
         db.session.commit()
@@ -242,7 +280,7 @@ def delete_user(user_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Delete user failed: {e}')
-        flash('Failed to delete user. Please try again.', 'danger')
+        flash(f'Failed to delete user: {e}', 'danger')
     return redirect(url_for('admin.manage_users'))
 
 

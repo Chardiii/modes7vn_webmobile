@@ -57,10 +57,10 @@ def _order_dict(o):
                 'variant_size': i.variant_size,
                 'variant_color': i.variant_color,
                 'image_url': (
-                    f"{base}/static/uploads/{i.product.images.filter_by(is_primary=True).first().image_url}"
+                    f"{base}/static/uploads/{i.product.images.filter_by(is_primary=True).first().image_url.replace(chr(92), '/')}"
                     if i.product and i.product.images.filter_by(is_primary=True).first()
                     else (
-                        f"{base}/static/uploads/{i.product.images.first().image_url}"
+                        f"{base}/static/uploads/{i.product.images.first().image_url.replace(chr(92), '/')}"
                         if i.product and i.product.images.first() else None
                     )
                 ),
@@ -92,7 +92,7 @@ def api_get_cart():
         if not item.product or not item.product.is_active:
             continue
         primary = item.product.images.filter_by(is_primary=True).first()
-        image_url = f"{base}/static/uploads/{primary.image_url}" if primary else None
+        image_url = f"{base}/static/uploads/{primary.image_url.replace(chr(92), '/')}" if primary else None
         result.append({
             'product_id': item.product_id,
             'variant_id': item.variant_id,
@@ -495,7 +495,7 @@ def api_seller_products():
             'stock': p.total_stock, 'category': p.category,
             'is_active': p.is_active, 'rating': p.rating,
             'review_count': p.review_count,
-            'image_url': f"{base}/static/uploads/{primary.image_url}" if primary else None,
+            'image_url': f"{base}/static/uploads/{primary.image_url.replace(chr(92), '/')}" if primary else None,
         })
     return jsonify(result)
 

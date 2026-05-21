@@ -13,31 +13,64 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _api = ApiService();
-  final _formKey          = GlobalKey<FormState>();
-  final _usernameCtrl     = TextEditingController();
-  final _emailCtrl        = TextEditingController();
-  final _passwordCtrl     = TextEditingController();
-  final _confirmCtrl      = TextEditingController();
-  final _firstNameCtrl    = TextEditingController();
-  final _lastNameCtrl     = TextEditingController();
-  final _phoneCtrl        = TextEditingController();
-  final _shopNameCtrl     = TextEditingController();
-  final _shopDescCtrl     = TextEditingController();
-  final _plateCtrl        = TextEditingController();
-  final _serviceAreaCtrl  = TextEditingController();
+  final _api             = ApiService();
+  final _formKey         = GlobalKey<FormState>();
+  final _usernameCtrl    = TextEditingController();
+  final _emailCtrl       = TextEditingController();
+  final _passwordCtrl    = TextEditingController();
+  final _confirmCtrl     = TextEditingController();
+  final _firstNameCtrl   = TextEditingController();
+  final _lastNameCtrl    = TextEditingController();
+  final _phoneCtrl       = TextEditingController();
+  final _shopNameCtrl    = TextEditingController();
+  final _shopDescCtrl    = TextEditingController();
+  final _plateCtrl       = TextEditingController();
+  final _serviceAreaCtrl = TextEditingController();
 
-  String _role = 'buyer';
+  String _role        = 'buyer';
   String _vehicleType = 'Motorcycle';
-  bool _loading = false;
-  bool _obscure = true;
+  bool   _loading        = false;
+  bool   _obscure        = true;
+  bool   _obscureConfirm = true;
+
+  bool _reqLen     = false;
+  bool _reqUpper   = false;
+  bool _reqNum     = false;
+  bool _reqSpecial = false;
+
+  int get _pwScore => [_reqLen, _reqUpper, _reqNum, _reqSpecial].where((b) => b).length;
+
+  void _onPasswordChanged(String v) {
+    setState(() {
+      _reqLen     = v.length >= 8;
+      _reqUpper   = v.contains(RegExp(r'[A-Z]'));
+      _reqNum     = v.contains(RegExp(r'[0-9]'));
+      _reqSpecial = v.contains(RegExp(r'[^A-Za-z0-9]'));
+    });
+  }
 
   File? _validIdFile;
   File? _businessPermitFile;
   File? _driversLicenseFile;
 
-  final _picker = ImagePicker();
+  final _picker       = ImagePicker();
   final _vehicleTypes = ['Motorcycle', 'Bicycle', 'Car', 'Van'];
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _shopNameCtrl.dispose();
+    _shopDescCtrl.dispose();
+    _plateCtrl.dispose();
+    _serviceAreaCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickFile(String type) async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -67,10 +100,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (source == null) return;
     final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       final file = File(picked.path);
-      if (type == 'valid_id') _validIdFile = file;
+      if (type == 'valid_id')        _validIdFile        = file;
       if (type == 'business_permit') _businessPermitFile = file;
       if (type == 'drivers_license') _driversLicenseFile = file;
     });
@@ -100,39 +133,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: file != null ? 1.5 : 1),
               ),
               child: file != null
-                  ? Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(file, width: 56, height: 56, fit: BoxFit.cover),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(file.path.split('/').last,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                  color: AppColors.textPrimary, fontSize: 12)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: AppColors.textMuted, size: 18),
-                          onPressed: () => setState(() {
-                            if (type == 'valid_id') _validIdFile = null;
-                            if (type == 'business_permit') _businessPermitFile = null;
-                            if (type == 'drivers_license') _driversLicenseFile = null;
-                          }),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        const Icon(Icons.upload_file_outlined, color: AppColors.gold, size: 22),
-                        const SizedBox(width: 10),
-                        Text('Tap to upload photo',
+                  ? Row(children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(file, width: 56, height: 56, fit: BoxFit.cover),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(file.path.split('/').last,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
-                                color: AppColors.textMuted, fontSize: 13)),
-                      ],
-                    ),
+                                color: AppColors.textPrimary, fontSize: 12)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textMuted, size: 18),
+                        onPressed: () => setState(() {
+                          if (type == 'valid_id')        _validIdFile        = null;
+                          if (type == 'business_permit') _businessPermitFile = null;
+                          if (type == 'drivers_license') _driversLicenseFile = null;
+                        }),
+                      ),
+                    ])
+                  : Row(children: [
+                      const Icon(Icons.upload_file_outlined, color: AppColors.gold, size: 22),
+                      const SizedBox(width: 10),
+                      Text('Tap to upload photo',
+                          style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13)),
+                    ]),
             ),
           ),
         ],
@@ -161,21 +189,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
     try {
       await _api.register(
-        username:            _usernameCtrl.text.trim(),
-        email:               _emailCtrl.text.trim(),
-        password:            _passwordCtrl.text,
-        role:                _role,
-        firstName:           _firstNameCtrl.text.trim(),
-        lastName:            _lastNameCtrl.text.trim(),
-        phone:               _phoneCtrl.text.trim(),
-        shopName:            _shopNameCtrl.text.trim(),
-        shopDescription:     _shopDescCtrl.text.trim(),
-        vehicleType:         _vehicleType,
-        plateNumber:         _plateCtrl.text.trim(),
-        serviceArea:         _serviceAreaCtrl.text.trim(),
-        validIdPath:         _validIdFile?.path,
-        businessPermitPath:  _businessPermitFile?.path,
-        driversLicensePath:  _driversLicenseFile?.path,
+        username:           _usernameCtrl.text.trim(),
+        email:              _emailCtrl.text.trim(),
+        password:           _passwordCtrl.text,
+        role:               _role,
+        firstName:          _firstNameCtrl.text.trim(),
+        lastName:           _lastNameCtrl.text.trim(),
+        phone:              _phoneCtrl.text.trim(),
+        shopName:           _shopNameCtrl.text.trim(),
+        shopDescription:    _shopDescCtrl.text.trim(),
+        vehicleType:        _vehicleType,
+        plateNumber:        _plateCtrl.text.trim(),
+        serviceArea:        _serviceAreaCtrl.text.trim(),
+        validIdPath:        _validIdFile?.path,
+        businessPermitPath: _businessPermitFile?.path,
+        driversLicensePath: _driversLicenseFile?.path,
       );
       if (!mounted) return;
       showDialog(
@@ -187,12 +215,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               borderRadius: BorderRadius.circular(20),
               side: const BorderSide(color: AppColors.border)),
           title: Text('✨ Registration Submitted',
-              style: GoogleFonts.orbitron(
-                  color: AppColors.gold, fontSize: 16)),
+              style: GoogleFonts.orbitron(color: AppColors.gold, fontSize: 16)),
           content: Text(
               'Please verify your email, then wait for admin approval before logging in.',
-              style: GoogleFonts.inter(
-                  color: AppColors.textMuted, fontSize: 13)),
+              style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13)),
           actions: [
             ElevatedButton(
               onPressed: () {
@@ -253,11 +279,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text('Choose your role to get started',
-                  style: GoogleFonts.inter(
-                      color: AppColors.textMuted, fontSize: 12)),
+                  style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12)),
               const SizedBox(height: 24),
 
-              // Role selector
               Text('I AM A...',
                   style: GoogleFonts.inter(
                       color: AppColors.textMuted,
@@ -265,33 +289,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  _RoleChip(
-                    label: 'Buyer',
-                    icon: Icons.shopping_bag_outlined,
-                    selected: _role == 'buyer',
-                    onTap: () => setState(() => _role = 'buyer'),
-                  ),
-                  const SizedBox(width: 10),
-                  _RoleChip(
-                    label: 'Seller',
-                    icon: Icons.storefront_outlined,
-                    selected: _role == 'seller',
-                    onTap: () => setState(() => _role = 'seller'),
-                  ),
-                  const SizedBox(width: 10),
-                  _RoleChip(
-                    label: 'Rider',
-                    icon: Icons.delivery_dining_outlined,
-                    selected: _role == 'rider',
-                    onTap: () => setState(() => _role = 'rider'),
-                  ),
-                ],
-              ),
+              _RoleSelector(selected: _role, onChanged: (r) => setState(() => _role = r)),
               const SizedBox(height: 24),
 
-              // Basic info
               Text('BASIC INFO',
                   style: GoogleFonts.inter(
                       color: AppColors.textMuted,
@@ -305,9 +305,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Expanded(child: _field(_lastNameCtrl, 'Last Name')),
               ]),
               _field(_usernameCtrl, 'Username *',
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Required'
-                      : null),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
               _field(_emailCtrl, 'Email *',
                   keyboard: TextInputType.emailAddress,
                   validator: (v) {
@@ -315,28 +313,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (!v.contains('@')) return 'Enter a valid email';
                     return null;
                   }),
-              _field(_phoneCtrl, 'Phone',
-                  keyboard: TextInputType.phone),
-              _field(_passwordCtrl, 'Password *',
-                  obscure: _obscure,
-                  suffix: IconButton(
-                    icon: Icon(
-                        _obscure ? Icons.visibility_off : Icons.visibility,
-                        color: AppColors.textMuted),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (v.length < 8) return 'At least 8 characters';
-                    return null;
-                  }),
+              _field(_phoneCtrl, 'Phone', keyboard: TextInputType.phone),
+              // ── Password with strength indicator ──
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _passwordCtrl,
+                      obscureText: _obscure,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Password *',
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility,
+                              color: AppColors.textMuted),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      onChanged: _onPasswordChanged,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Required';
+                        if (!_reqLen)     return 'At least 8 characters';
+                        if (!_reqUpper)   return 'Add an uppercase letter (A–Z)';
+                        if (!_reqNum)     return 'Add a number (0–9)';
+                        if (!_reqSpecial) return r'Add a special character (!@#$…)';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: _pwScore / 4,
+                        minHeight: 4,
+                        backgroundColor: AppColors.border,
+                        valueColor: AlwaysStoppedAnimation(
+                          [Colors.transparent, AppColors.error, Colors.orange,
+                           AppColors.goldMid, AppColors.success][_pwScore],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('REQUIREMENTS',
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textMuted,
+                                  fontSize: 9,
+                                  letterSpacing: 1.2,
+                                  fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          _PwReq('At least 8 characters', _reqLen),
+                          _PwReq('One uppercase letter (A–Z)', _reqUpper),
+                          _PwReq('One number (0–9)', _reqNum),
+                          _PwReq(r'One special character (!@#$…)', _reqSpecial),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               _field(_confirmCtrl, 'Confirm Password *',
-                  obscure: _obscure,
-                  validator: (v) => v != _passwordCtrl.text
-                      ? 'Passwords do not match'
-                      : null),
+                  obscure: _obscureConfirm,
+                  suffix: IconButton(
+                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textMuted),
+                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+                  validator: (v) => v != _passwordCtrl.text ? 'Passwords do not match' : null),
 
-              // Valid ID — required for all roles
               const Divider(),
               const SizedBox(height: 8),
               Text('IDENTITY VERIFICATION',
@@ -348,94 +403,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 12),
               _filePicker('Valid ID', _validIdFile, 'valid_id', required: true),
 
-              // Seller fields
-              if (_role == 'seller') ...[
-                const Divider(),
-                const SizedBox(height: 8),
-                Text('SHOP INFO',
-                    style: GoogleFonts.inter(
-                        color: AppColors.textMuted,
-                        fontSize: 10,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                _field(_shopNameCtrl, 'Shop Name *',
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Shop name is required'
-                        : null),
-                _field(_shopDescCtrl, 'Shop Description',
-                    maxLines: 3),
-                _filePicker('Business Permit', _businessPermitFile, 'business_permit', required: true),
-              ],
+              // Seller section
+              if (_role == 'seller') _SellerSection(
+                shopNameCtrl: _shopNameCtrl,
+                shopDescCtrl: _shopDescCtrl,
+                businessPermitFile: _businessPermitFile,
+                onPickFile: _pickFile,
+                onClearFile: () => setState(() => _businessPermitFile = null),
+              ),
 
-              // Rider fields
-              if (_role == 'rider') ...[
-                const Divider(),
-                const SizedBox(height: 8),
-                Text('VEHICLE INFO',
-                    style: GoogleFonts.inter(
-                        color: AppColors.textMuted,
-                        fontSize: 10,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _vehicleType,
-                    dropdownColor: AppColors.surfaceLight,
-                    style: const TextStyle(color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Vehicle Type',
-                      labelStyle:
-                          const TextStyle(color: AppColors.textMuted),
-                      filled: true,
-                      fillColor: AppColors.surfaceLight,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: AppColors.border)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: AppColors.border)),
-                    ),
-                    items: _vehicleTypes
-                        .map((t) => DropdownMenuItem(
-                            value: t,
-                            child: Text(t,
-                                style: const TextStyle(
-                                    color: AppColors.textPrimary))))
-                        .toList(),
-                    onChanged: (v) =>
-                        setState(() => _vehicleType = v ?? 'Motorcycle'),
-                  ),
-                ),
-                _field(_plateCtrl, 'Plate Number *',
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Plate number is required'
-                        : null),
-                _field(_serviceAreaCtrl, 'Service Area *',
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Service area is required'
-                        : null),
-                // hint text
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12, top: -8),
-                  child: Text('City or municipality you will deliver in (e.g. Calamba, Laguna)',
-                      style: GoogleFonts.inter(
-                          color: AppColors.textMuted, fontSize: 11)),
-                ),
-                _filePicker("Driver's License", _driversLicenseFile, 'drivers_license', required: true),
-              ],
+              // Rider section
+              if (_role == 'rider') _RiderSection(
+                plateCtrl: _plateCtrl,
+                serviceAreaCtrl: _serviceAreaCtrl,
+                vehicleType: _vehicleType,
+                vehicleTypes: _vehicleTypes,
+                driversLicenseFile: _driversLicenseFile,
+                onVehicleTypeChanged: (v) => setState(() => _vehicleType = v),
+                onPickFile: _pickFile,
+                onClearFile: () => setState(() => _driversLicenseFile = null),
+              ),
 
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                            color: AppColors.gold))
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
                     : Container(
                         decoration: BoxDecoration(
                           gradient: goldGradient,
@@ -453,8 +446,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
                             foregroundColor: AppColors.background,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(40)),
                           ),
@@ -471,6 +463,317 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Seller section ────────────────────────────────────────────────────────────
+
+class _SellerSection extends StatelessWidget {
+  final TextEditingController shopNameCtrl;
+  final TextEditingController shopDescCtrl;
+  final File? businessPermitFile;
+  final Future<void> Function(String) onPickFile;
+  final VoidCallback onClearFile;
+
+  const _SellerSection({
+    required this.shopNameCtrl,
+    required this.shopDescCtrl,
+    required this.businessPermitFile,
+    required this.onPickFile,
+    required this.onClearFile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const SizedBox(height: 8),
+        Text('SHOP INFO',
+            style: GoogleFonts.inter(
+                color: AppColors.textMuted,
+                fontSize: 10,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: TextFormField(
+            controller: shopNameCtrl,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(labelText: 'Shop Name *'),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Shop name is required' : null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: TextFormField(
+            controller: shopDescCtrl,
+            maxLines: 3,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(labelText: 'Shop Description'),
+          ),
+        ),
+        _FilePickerTile(
+          label: 'Business Permit',
+          file: businessPermitFile,
+          type: 'business_permit',
+          required: true,
+          onPick: onPickFile,
+          onClear: onClearFile,
+        ),
+      ],
+    );
+  }
+}
+
+// ── Rider section ─────────────────────────────────────────────────────────────
+
+class _RiderSection extends StatelessWidget {
+  final TextEditingController plateCtrl;
+  final TextEditingController serviceAreaCtrl;
+  final String vehicleType;
+  final List<String> vehicleTypes;
+  final File? driversLicenseFile;
+  final ValueChanged<String> onVehicleTypeChanged;
+  final Future<void> Function(String) onPickFile;
+  final VoidCallback onClearFile;
+
+  const _RiderSection({
+    required this.plateCtrl,
+    required this.serviceAreaCtrl,
+    required this.vehicleType,
+    required this.vehicleTypes,
+    required this.driversLicenseFile,
+    required this.onVehicleTypeChanged,
+    required this.onPickFile,
+    required this.onClearFile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const SizedBox(height: 8),
+        Text('VEHICLE INFO',
+            style: GoogleFonts.inter(
+                color: AppColors.textMuted,
+                fontSize: 10,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: DropdownButtonFormField<String>(
+            value: vehicleType,
+            dropdownColor: AppColors.surfaceLight,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Vehicle Type',
+              labelStyle: const TextStyle(color: AppColors.textMuted),
+              filled: true,
+              fillColor: AppColors.surfaceLight,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border)),
+            ),
+            items: vehicleTypes
+                .map((t) => DropdownMenuItem(
+                    value: t,
+                    child: Text(t,
+                        style: const TextStyle(color: AppColors.textPrimary))))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) onVehicleTypeChanged(v);
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: TextFormField(
+            controller: plateCtrl,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(labelText: 'Plate Number *'),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Plate number is required' : null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: TextFormField(
+            controller: serviceAreaCtrl,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(labelText: 'Service Area *'),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Service area is required' : null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+              'City or municipality you will deliver in (e.g. Calamba, Laguna)',
+              style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11)),
+        ),
+        _FilePickerTile(
+          label: "Driver's License",
+          file: driversLicenseFile,
+          type: 'drivers_license',
+          required: true,
+          onPick: onPickFile,
+          onClear: onClearFile,
+        ),
+      ],
+    );
+  }
+}
+
+// ── Shared file picker tile ───────────────────────────────────────────────────
+
+class _FilePickerTile extends StatelessWidget {
+  final String label;
+  final File? file;
+  final String type;
+  final bool required;
+  final Future<void> Function(String) onPick;
+  final VoidCallback onClear;
+
+  const _FilePickerTile({
+    required this.label,
+    required this.file,
+    required this.type,
+    required this.onPick,
+    required this.onClear,
+    this.required = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label + (required ? ' *' : ''),
+              style: GoogleFonts.inter(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => onPick(type),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: file != null ? AppColors.gold : AppColors.border,
+                    width: file != null ? 1.5 : 1),
+              ),
+              child: file != null
+                  ? Row(children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(file!, width: 56, height: 56, fit: BoxFit.cover),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(file!.path.split('/').last,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                                color: AppColors.textPrimary, fontSize: 12)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textMuted, size: 18),
+                        onPressed: onClear,
+                      ),
+                    ])
+                  : Row(children: [
+                      const Icon(Icons.upload_file_outlined, color: AppColors.gold, size: 22),
+                      const SizedBox(width: 10),
+                      Text('Tap to upload photo',
+                          style: GoogleFonts.inter(
+                              color: AppColors.textMuted, fontSize: 13)),
+                    ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Password requirement row ────────────────────────────────────────────────────────────
+
+class _PwReq extends StatelessWidget {
+  final String label;
+  final bool met;
+  const _PwReq(this.label, this.met);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Icon(
+            met ? Icons.circle : Icons.circle_outlined,
+            size: 8,
+            color: met ? AppColors.success : AppColors.textMuted,
+          ),
+          const SizedBox(width: 6),
+          Text(label,
+              style: GoogleFonts.inter(
+                  color: met ? AppColors.success : AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: met ? FontWeight.w600 : FontWeight.w400)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Role selector ─────────────────────────────────────────────────────────────
+
+class _RoleSelector extends StatelessWidget {
+  final String selected;
+  final ValueChanged<String> onChanged;
+  const _RoleSelector({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _RoleChip(
+          label: 'Buyer',
+          icon: Icons.shopping_bag_outlined,
+          selected: selected == 'buyer',
+          onTap: () => onChanged('buyer'),
+        ),
+        const SizedBox(width: 10),
+        _RoleChip(
+          label: 'Seller',
+          icon: Icons.storefront_outlined,
+          selected: selected == 'seller',
+          onTap: () => onChanged('seller'),
+        ),
+        const SizedBox(width: 10),
+        _RoleChip(
+          label: 'Rider',
+          icon: Icons.delivery_dining_outlined,
+          selected: selected == 'rider',
+          onTap: () => onChanged('rider'),
+        ),
+      ],
     );
   }
 }
@@ -497,22 +800,17 @@ class _RoleChip extends StatelessWidget {
             gradient: selected ? goldGradient : null,
             color: selected ? null : AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: selected ? AppColors.gold : AppColors.border),
+            border: Border.all(color: selected ? AppColors.gold : AppColors.border),
           ),
           child: Column(
             children: [
               Icon(icon,
                   size: 22,
-                  color: selected
-                      ? AppColors.background
-                      : AppColors.textMuted),
+                  color: selected ? AppColors.background : AppColors.textMuted),
               const SizedBox(height: 4),
               Text(label,
                   style: GoogleFonts.inter(
-                      color: selected
-                          ? AppColors.background
-                          : AppColors.textMuted,
+                      color: selected ? AppColors.background : AppColors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600)),
             ],

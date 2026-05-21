@@ -31,7 +31,7 @@ def _save_image(file):
 
 def _product_dict(p, base_url):
     primary = p.images.filter_by(is_primary=True).first() or p.images.first()
-    image_url = f"{base_url}/static/uploads/{primary.image_url}" if primary else None
+    image_url = f"{base_url}/static/uploads/{primary.image_url.replace(chr(92), '/')}" if primary else None
     return {
         'id': p.id,
         'name': p.name,
@@ -88,7 +88,7 @@ def api_product_detail(product_id):
     base = request.host_url.rstrip('/')
 
     images = [
-        f"{base}/static/uploads/{img.image_url}"
+        f"{base}/static/uploads/{img.image_url.replace(chr(92), '/')}"
         for img in p.images.order_by(ProductImage.is_primary.desc()).all()
     ]
     variants = [
@@ -122,7 +122,7 @@ def api_get_seller_product(product_id):
     base = request.host_url.rstrip('/')
     images = [
         {'id': img.id,
-         'url': f"{base}/static/uploads/{img.image_url}",
+         'url': f"{base}/static/uploads/{img.image_url.replace(chr(92), '/')}",
          'is_primary': img.is_primary}
         for img in product.images.order_by(ProductImage.is_primary.desc()).all()
     ]

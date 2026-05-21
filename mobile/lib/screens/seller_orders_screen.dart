@@ -345,29 +345,66 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(o['order_number'],
-                style: GoogleFonts.orbitron(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
+            // Order number + status badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(o['order_number'],
+                      style: GoogleFonts.orbitron(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700)),
+                ),
+                _StatusBadge(status),
+              ],
+            ),
             const SizedBox(height: 4),
-            Text('Buyer: ${o['buyer'] ?? ''}  •  ₱${o['total_amount']}',
-                style: GoogleFonts.inter(
-                    color: AppColors.textMuted, fontSize: 13)),
-            const SizedBox(height: 4),
-            Text('${o['delivery_address'] ?? ''}, ${o['delivery_city'] ?? ''}',
-                style: GoogleFonts.inter(
-                    color: AppColors.textMuted, fontSize: 12)),
+            Text(
+              o['created_at']?.toString().substring(0, 10) ?? '',
+              style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11),
+            ),
+            const Divider(height: 20),
+
+            // Buyer info
+            _DetailRow(icon: Icons.person_outline, label: 'Buyer',
+                value: o['buyer_name'] != null && (o['buyer_name'] as String).isNotEmpty
+                    ? '${o['buyer_name']} (@${o['buyer'] ?? ''})'
+                    : o['buyer'] ?? ''),
+            if (o['buyer_phone'] != null && (o['buyer_phone'] as String).isNotEmpty)
+              _DetailRow(icon: Icons.phone_outlined, label: 'Phone', value: o['buyer_phone']),
+            const SizedBox(height: 8),
+
+            // Delivery address
+            _DetailRow(
+              icon: Icons.location_on_outlined,
+              label: 'Delivery',
+              value: [
+                o['delivery_address'],
+                o['delivery_city'],
+                o['delivery_province'],
+              ].where((s) => s != null && s.toString().isNotEmpty).join(', '),
+            ),
             const Divider(height: 20),
 
             // Items
+            Text('ITEMS (${items.length})',
+                style: GoogleFonts.inter(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
             ...items.map<Widget>((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
-                            '${item['product_name']}${item['variant_size'] != null ? ' (${item['variant_size']})' : ''} x${item['quantity']}',
+                            '${item['product_name']}'
+                            '${item['variant_size'] != null ? ' (${item['variant_size']})' : ''}'
+                            '${item['variant_color'] != null ? ' · ${item['variant_color']}' : ''}'
+                            ' ×${item['quantity']}',
                             style: GoogleFonts.inter(
                                 color: AppColors.textPrimary,
                                 fontSize: 13)),
@@ -380,6 +417,25 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                     ],
                   ),
                 )),
+            const Divider(height: 20),
+
+            // Totals
+            if ((o['shipping_fee'] ?? 0) > 0) ...[
+              _TotalRow('Subtotal', '₱${o['subtotal'] ?? o['total_amount']}'),
+              const SizedBox(height: 4),
+              _TotalRow('Shipping Fee', '₱${o['shipping_fee']}'),
+              const SizedBox(height: 4),
+            ],
+            _TotalRow('Total', '₱${o['total_amount']}', bold: true),
+            const Divider(height: 20),
+
+            // Payment
+            _DetailRow(
+              icon: Icons.credit_card_outlined,
+              label: 'Payment',
+              value: '${o['payment']?['method'] == 'online' ? 'Online Payment' : 'Cash on Delivery'}'
+                  ' · ${(o['payment']?['status'] ?? 'pending').toString().toUpperCase()}',
+            ),
             const Divider(height: 20),
 
             if (_busy)
@@ -466,6 +522,100 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Small helpers ────────────────────────────────────────────────────────────
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge(this.status);
+
+  Color get _color {
+    switch (status) {
+      case 'delivered':        return AppColors.success;
+      case 'cancelled':        return AppColors.error;
+      case 'pending':          return AppColors.goldMid;
+      case 'verified':         return AppColors.gold;
+      case 'shipped':          return Colors.blue;
+      case 'cancel_requested': return Colors.orange;
+      default:                 return AppColors.textMuted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _color.withAlpha(30),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _color.withAlpha(100)),
+      ),
+      child: Text(status.toUpperCase(),
+          style: GoogleFonts.inter(
+              color: _color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5)),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final dynamic value;
+  const _DetailRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Text('$label: ',
+              style: GoogleFonts.inter(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text('${value ?? ''}',
+                style: GoogleFonts.inter(
+                    color: AppColors.textPrimary, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+  const _TotalRow(this.label, this.value, {this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: GoogleFonts.inter(
+                color: bold ? AppColors.textPrimary : AppColors.textMuted,
+                fontSize: bold ? 14 : 13,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+        Text(value,
+            style: GoogleFonts.inter(
+                color: bold ? AppColors.gold : AppColors.textMuted,
+                fontSize: bold ? 15 : 13,
+                fontWeight: bold ? FontWeight.w800 : FontWeight.w400)),
+      ],
     );
   }
 }
