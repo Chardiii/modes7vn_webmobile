@@ -2,16 +2,21 @@ import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
+# Only load .env in development, not in production (Railway sets env vars directly)
+if os.environ.get('FLASK_ENV') != 'production':
+    load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'fallback-secret-key'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-fallback-secret-key'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
     _db_url = os.environ.get('DATABASE_URL') or 'mysql+pymysql://root:@localhost/ecommerce_db'
-    # Render provides 'postgres://' but SQLAlchemy requires 'postgresql://'
+    # Render/Railway provide 'postgres://' but SQLAlchemy requires 'postgresql://'
     if _db_url.startswith('postgres://'):
         _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    # Railway provides 'mysql://' but SQLAlchemy requires 'mysql+pymysql://'
+    if _db_url.startswith('mysql://'):
+        _db_url = _db_url.replace('mysql://', 'mysql+pymysql://', 1)
     SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
